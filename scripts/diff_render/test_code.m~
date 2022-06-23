@@ -1,9 +1,0 @@
-clc
-clear all
-close all
-
-load cylinder
-
-
-
-plot3(cylinder(1)

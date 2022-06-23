@@ -16,7 +16,6 @@ import open3d as o3d
 
 
 class DiffRenderCatheter:
-
     def __init__(self):
 
         ## initialize camera parameters
@@ -28,10 +27,7 @@ class DiffRenderCatheter:
         n_beziers = 1
         self.bezier_set = BezierSet(n_beziers)
 
-        self.bezier_num_samples = 101
-        self.bezier_surface_resolution = 50
-
-        self.bezier_radius = 0.0015
+        mesh_cylinder = o3d.geometry.TriangleMesh.create_mesh_cylinder(radius=1.0, height=2.0, resolution=20, split=4)
 
     def setCameraParams(self, fx, fy, cx, cy, size_x, size_y, camera_extrinsics, camera_intrinsics):
         """
@@ -69,12 +65,13 @@ class DiffRenderCatheter:
         p_c2 = 4 / 3 * p_mid - 1 / 3 * p_end
         # self.control_pts = torch.vstack((p_start, c2, p_end, c1))
 
-        sample_list = torch.linspace(0, 1, self.bezier_num_samples)
+        self.num_samples = 100
+        sample_list = torch.linspace(0, 1, self.num_samples)
 
         # Get positions and normals from samples along bezier curve
-        self.bezier_pos = torch.zeros(self.bezier_num_samples, 3)
-        self.bezier_der = torch.zeros(self.bezier_num_samples, 3)
-        self.bezier_snd_der = torch.zeros(self.bezier_num_samples, 3)
+        self.bezier_pos = torch.zeros(self.num_samples, 3)
+        self.bezier_der = torch.zeros(self.num_samples, 3)
+        self.bezier_snd_der = torch.zeros(self.num_samples, 3)
         for i, s in enumerate(sample_list):
             self.bezier_pos[i, :] = (1 - s)**3 * p_start + 3 * s * (1 - s)**2 * \
                 p_c1 + 3 * (1 - s) * s**2 * p_c2 + s**3 * p_end
@@ -84,90 +81,22 @@ class DiffRenderCatheter:
             self.bezier_snd_der[i, :] = 6 * (1 - s) * (p_c2 - 2 * p_c1 + p_start) + 6 * s * (p_end - 2 * p_c2 + p_c1)
 
         # Convert positions and normals to camera frame
-        pos_bezier_H = torch.cat((self.bezier_pos, torch.ones(self.bezier_num_samples, 1)), dim=1)
+        pos_bezier_H = torch.cat((self.bezier_pos, torch.ones(self.num_samples, 1)), dim=1)
 
         pos_bezier_cam_H = torch.transpose(torch.matmul(self.cam_RT_H, torch.transpose(pos_bezier_H, 0, 1)), 0, 1)
         self.pos_bezier_cam = pos_bezier_cam_H[1:, :-1]
 
-        der_bezier_H = torch.cat((self.bezier_der, torch.zeros((self.bezier_num_samples, 1))), dim=1)
+        der_bezier_H = torch.cat((self.bezier_der, torch.zeros((self.num_samples, 1))), dim=1)
         der_bezier_cam_H = torch.transpose(torch.matmul(self.cam_RT_H, torch.transpose(der_bezier_H[1:, :], 0, 1)), 0,
                                            1)
         self.der_bezier_cam = der_bezier_cam_H[:, :-1]
 
     def getBezierTNB(self, bezier_pos, bezier_der, bezier_snd_der):
 
-        bezier_der_n = torch.linalg.norm(bezier_der, ord=2, dim=1)
-        self.bezier_tangent = bezier_der / torch.unsqueeze(bezier_der_n, dim=1)
-
-        bezier_normal_numerator = torch.linalg.cross(bezier_der, torch.linalg.cross(bezier_snd_der, bezier_der))
-        bezier_normal_numerator_n = torch.mul(
-            bezier_der_n, torch.linalg.norm(torch.linalg.cross(bezier_snd_der, bezier_der), ord=2, dim=1))
-
-        self.bezier_normal = bezier_normal_numerator / torch.unsqueeze(bezier_normal_numerator_n, dim=1)
-
-        bezier_binormal_numerator = torch.linalg.cross(bezier_der, bezier_snd_der)
-        bezier_binormal_numerator_n = torch.linalg.norm(bezier_binormal_numerator, ord=2, dim=1)
-
-        self.bezier_binormal = bezier_binormal_numerator / torch.unsqueeze(bezier_binormal_numerator_n, dim=1)
-
-    def getBezierSurface(self):
-
-        self.bezier_surface = torch.zeros(self.bezier_num_samples, self.bezier_surface_resolution, 3)
-
-        theta_list = torch.linspace(0.0, 2 * np.pi, self.bezier_surface_resolution)
-
-        for i in range(self.bezier_num_samples):
-            surface_vec = self.bezier_radius * (
-                -torch.mul(self.bezier_normal[1, :], torch.unsqueeze(torch.cos(theta_list), dim=1)) +
-                torch.mul(self.bezier_binormal[1, :], torch.unsqueeze(torch.sin(theta_list), dim=1)))
-
-            self.bezier_surface[i, :, :] = self.bezier_pos[i, :] + surface_vec
-
-    def createCylinderPrimitive(self):
-        self.mesh_cylinder = o3d.geometry.TriangleMesh.create_cylinder(radius=1,
-                                                                       height=10.0,
-                                                                       resolution=self.bezier_surface_resolution,
-                                                                       split=self.bezier_num_samples - 1,
-                                                                       create_uv_map=False)
-        self.mesh_cylinder.compute_vertex_normals()
-        self.mesh_cylinder.paint_uniform_color([0.1, 0.9, 0.1])
-        self.mesh_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.6, origin=[0, 0, 0])
-
-    def createOpen3DVisualizer(self):
-
-        # Visualizer
-        self.vis = o3d.visualization.VisualizerWithKeyCallback()
-        self.vis.create_window()
-        self.vis.register_key_callback(88, self.closeOpen3DVisualizer)
-        self.vis.get_view_control().set_zoom(1.5)
-
-        # o3d.visualization.draw_geometries([mesh_cylinder, mesh_frame])
-        self.vis.add_geometry(self.mesh_cylinder)
-        self.vis.add_geometry(self.mesh_frame)
-
-    def updateOpen3DVisualizer(self):
-
-        surface_vertices = torch.reshape(self.bezier_surface, (-1, 3))
-        top_center_vertice = torch.unsqueeze(self.bezier_pos[0, :], dim=0)
-        bot_center_vertice = torch.unsqueeze(self.bezier_pos[-1, :], dim=0)
-        update_vertices = torch.cat((top_center_vertice, bot_center_vertice, surface_vertices), dim=0).detach().numpy()
-
-        # self.mesh_cylinder.vertices = o3d.utility.Vector3dVector(update_vertices)
-
-        # self.vis.update_geometry(self.mesh_cylinder)
-        # self.vis.update_renderer()
-
-        o3d.visualization.draw_geometries([self.mesh_cylinder])
-
-        self.vis_view = o3d.visualization.ViewControl
-        self.vis_view.camera_local_translate(0, 0, 0)
-
-    def closeOpen3DVisualizer(vis):
-        print('Closing visualizer!')
+        bezier_tangent = bezier_der / torch.linalg.norm(bezier_der, ord=2, dim=1)
 
 
 class BlenderRenderCatheter:
-
     def __init__(self):
 
         ## initialize a catheter
@@ -220,30 +149,14 @@ if __name__ == '__main__':
     para_gt = torch.tensor([0.02003904, 0.0016096, 0.10205799, 0.02489567, -0.04695673, 0.196168896], dtype=torch.float)
     p_start = torch.tensor([0.02, 0.002, 0.0])
 
-    # case_naming = '/home/fei/ARCLab-CCCatheter/scripts/diff_render/blender_imgs/diff_render_1'
-    # img_save_path = case_naming + '.png'
-    # cc_specs_path = case_naming + '.npy'
-    # target_specs_path = None
-    # viewpoint_mode = 1
-    # transparent_mode = 0
+    case_naming = '/home/fei/ARCLab-CCCatheter/scripts/diff_render/blender_imgs/diff_render_1'
+    img_save_path = case_naming + '.png'
+    cc_specs_path = case_naming + '.npy'
+    target_specs_path = None
+    viewpoint_mode = 1
+    transparent_mode = 0
 
-    # blender_catheter.set_bezier_in_blender(para_gt.detach().numpy(), p_start.detach().numpy())
+    blender_catheter.set_bezier_in_blender(para_gt.detach().numpy(), p_start.detach().numpy())
 
-    # blender_catheter.render_bezier_in_blender(cc_specs_path, img_save_path, target_specs_path, viewpoint_mode,
-    #                                          transparent_mode)
-
-    diff_catheter = DiffRenderCatheter()
-
-    ## define a bezier curve
-    diff_catheter.getBezierCurve(para_gt, p_start)
-
-    ## get the bezier in TNB frame, in order to build a tube mesh
-    diff_catheter.getBezierTNB(diff_catheter.bezier_pos, diff_catheter.bezier_der, diff_catheter.bezier_snd_der)
-
-    ## get bezier surface mesh
-    ## ref : https://mathworld.wolfram.com/Tube.html
-    diff_catheter.getBezierSurface()
-
-    diff_catheter.createCylinderPrimitive()
-    # diff_catheter.createOpen3DVisualizer()
-    diff_catheter.updateOpen3DVisualizer()
+    blender_catheter.render_bezier_in_blender(cc_specs_path, img_save_path, target_specs_path, viewpoint_mode,
+                                              transparent_mode)
