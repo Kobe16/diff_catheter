@@ -4,7 +4,6 @@ import numpy as np
 import path_settings
 
 
-
 class BezierSet:
 
     def __init__(self, n):
@@ -14,7 +13,6 @@ class BezierSet:
         """
         self.specs = np.zeros((n, 4, 3))
         self.count = 0
-
 
     def enter_spec(self, p_start, p_end, c1, c2):
         """
@@ -35,7 +33,6 @@ class BezierSet:
         self.specs[self.count, :] = np.array([p_start, p_end, c1, c2])
         self.count += 1
 
-
     def print_specs(self):
         """
         Print the specs 3D array
@@ -43,7 +40,6 @@ class BezierSet:
         print('Bezier Specs (shape = ' + str(self.specs.shape) + '): ')
         print(self.specs)
         print('')
-
 
     def write_specs(self, specs_path):
         """
@@ -54,7 +50,6 @@ class BezierSet:
         """
         self.specs_path = specs_path
         np.save(specs_path, self.specs)
-
 
     def render(self, img_save_path, target_specs_path=None, viewpoint_mode=1, transparent_mode=0):
         """
@@ -70,24 +65,16 @@ class BezierSet:
 
         if target_specs_path:
             subprocess.run([
-                './blender',
-                '-b',
-                '-P', path_settings.bezier_render_script,
-                '--',
-                '--specs_path', self.specs_path,
-                '--save_path', img_save_path,
-                '--viewpoint_mode', str(viewpoint_mode),
-                '--target_specs_path', target_specs_path,
-                '--transparent_mode', str(transparent_mode)])
+                './blender', '-b', '-P', path_settings.bezier_render_script, '--', '--specs_path', self.specs_path,
+                '--save_path', img_save_path, '--viewpoint_mode',
+                str(viewpoint_mode), '--target_specs_path', target_specs_path, '--transparent_mode',
+                str(transparent_mode)
+            ])
 
         else:
             subprocess.run([
-                './blender',
-                '-b',
-                '-P', path_settings.bezier_render_script,
-                '--',
-                '--specs_path', self.specs_path,
-                '--save_path', img_save_path,
-                '--viewpoint_mode', str(viewpoint_mode),
-                '--target_specs_path', '',
-                '--transparent_mode', str(transparent_mode)])
+                './blender', '-P', path_settings.bezier_render_script, '--', '--specs_path', self.specs_path,
+                '--save_path', img_save_path, '--viewpoint_mode',
+                str(viewpoint_mode), '--target_specs_path', '', '--transparent_mode',
+                str(transparent_mode)
+            ])
