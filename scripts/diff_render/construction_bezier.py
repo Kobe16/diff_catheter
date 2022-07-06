@@ -18,12 +18,15 @@ import open3d as o3d
 import cv2
 import matplotlib.pyplot as plt
 
+import torch.nn as nn
+
 import pdb
 
 
-class ConstructionBezier:
+class ConstructionBezier(nn.Module):
 
     def __init__(self):
+        super().__init__()
 
         ## initialize camera parameters
         self.setCameraParams(camera_settings.a, camera_settings.b, camera_settings.center_x, camera_settings.center_y,
@@ -269,3 +272,6 @@ class ConstructionBezier:
         # cv2.imwrite('./gradient_steps_imgs/tangent_draw_img_rgb_' + str(self.GD_Iteration) + '.jpg', tangent_draw_img_rgb)
 
         return centerline_draw_img_rgb, tangent_draw_img_rgb
+    
+    def forward(self):
+        raise NotImplementedError

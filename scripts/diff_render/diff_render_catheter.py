@@ -8,13 +8,15 @@ import pytorch3d.structures as torch3d_structures
 import torch
 
 import matplotlib.pyplot as plt
+import torch.nn as nn
 
 import pdb
 
 
-class DiffRenderCatheter:
+class DiffRenderCatheter(nn.Module):
 
     def __init__(self, camera_extrinsics, camera_intrinsics, gpu_or_cpu):
+        super().__init__()
 
         # ## Set the cuda device
         # if torch.cuda.is_available():
@@ -111,3 +113,6 @@ class DiffRenderCatheter:
         # plt.show()
         fig.savefig(save_img_path)
         plt.close(fig)
+    
+    def forward(self):
+        raise NotImplementedError
