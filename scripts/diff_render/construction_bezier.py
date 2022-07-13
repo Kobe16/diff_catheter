@@ -121,6 +121,9 @@ class ConstructionBezier(nn.Module):
             torch.matmul(self.cam_RT_H, torch.transpose(der_snd_bezier_H[1:, :], 0, 1)), 0, 1)
         self.bezier_snd_der_cam = bezier_snd_der_cam_H[:, :-1]
 
+        ## get project image centerline
+        self.bezier_proj_img = self.getProjPointCam(self.bezier_pos_cam[1:], self.cam_K)
+
     def getProjPointCam(self, p, cam_K):
         # p is of size R^(Nx3)
         if p.shape == (3, ):
@@ -220,24 +223,24 @@ class ConstructionBezier(nn.Module):
         centerline_draw_img_rgb = self.raw_img_rgb.copy()
 
         ## torch clone
-        proj_bezier_img = torch.clone(self.proj_bezier_img)
+        bezier_proj_img = torch.clone(self.bezier_proj_img)
 
         # Draw centerline
-        for i in range(proj_bezier_img.shape[0] - 1):
-            # if not self.isPointInImage(proj_bezier_img[i, :], centerline_draw_img_rgb.shape[1], centerline_draw_img_rgb.shape[0]):
+        for i in range(bezier_proj_img.shape[0] - 1):
+            # if not self.isPointInImage(bezier_proj_img[i, :], centerline_draw_img_rgb.shape[1], centerline_draw_img_rgb.shape[0]):
             #     continue
-            # if not self.isPointInImage(proj_bezier_img[i + 1, :], centerline_draw_img_rgb.shape[1], centerline_draw_img_rgb.shape[0]):
+            # if not self.isPointInImage(bezier_proj_img[i + 1, :], centerline_draw_img_rgb.shape[1], centerline_draw_img_rgb.shape[0]):
             #     continue
 
-            p1 = (int(proj_bezier_img[i, 0]), int(proj_bezier_img[i, 1]))
-            p2 = (int(proj_bezier_img[i + 1, 0]), int(proj_bezier_img[i + 1, 1]))
+            p1 = (int(bezier_proj_img[i, 0]), int(bezier_proj_img[i, 1]))
+            p2 = (int(bezier_proj_img[i + 1, 0]), int(bezier_proj_img[i + 1, 1]))
             cv2.line(centerline_draw_img_rgb, p1, p2, (0, 100, 255), 1)
 
         # Draw tangent lines every few to check they are correct
         show_every_so_many_samples = 10
         l = 0.1
         tangent_draw_img_rgb = centerline_draw_img_rgb.copy()
-        for i, p in enumerate(proj_bezier_img):
+        for i, p in enumerate(bezier_proj_img):
             if i % show_every_so_many_samples != 0:
                 continue
 

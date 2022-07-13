@@ -12,6 +12,7 @@ from bezier_set import BezierSet
 import camera_settings
 
 import torch
+from torch import autograd
 
 import open3d as o3d
 
@@ -23,7 +24,7 @@ import pdb
 from construction_bezier import ConstructionBezier
 from blender_catheter import BlenderRenderCatheter
 from diff_render_catheter import DiffRenderCatheter
-from loss_define import ContourLoss, MaskLoss
+from loss_define import ContourLoss, MaskLoss, CenterlineLoss
 from build_diff_model import DiffOptimizeModel
 
 import pytorch3d
@@ -58,6 +59,7 @@ class DoDiffOptimization(nn.Module):
     def doOptimization(self):
 
         def closure():
+            # with autograd.detect_anomaly():
             self.optimizer.zero_grad()
             self.loss, self.img_render_binary = self.diff_model()
             self.loss.backward()
@@ -93,22 +95,22 @@ class DoDiffOptimization(nn.Module):
             saved_value = np.hstack((last_loss.cpu().detach().numpy(), self.para_init.cpu().detach().numpy()))
             self.saved_para_history = np.vstack((self.saved_para_history, saved_value))
 
-            save_img_path = '/home/fei/diff_catheter/scripts/diff_render/blender_imgs/torch3d_rendered_imgs/' + 'torch3d_render_' + str(
+            save_img_path = '/home/fei/diff_catheter/scripts/diff_render/torch3d_rendered_imgs/' + 'render_' + str(
                 self.id_iteration) + '.jpg'  # save the figure to file
 
-            # fig, axes = plt.subplots(1, 2, figsize=(6, 3))
-            # ax = axes.ravel()
-            # ax[0].imshow(self.diff_model.image_ref.cpu().detach().numpy(), cmap=colormap.gray)
-            # ax[0].set_title('raw thresholding')
-            # ax[1].imshow(self.img_render_binary.cpu().detach().numpy(), cmap=colormap.gray)
-            # ax[1].set_title('render binary')
-            # # ax[2].imshow(img_render_alpha.cpu().detach().numpy(), cmap=colormap.gray)
-            # # ax[2].set_title('raw render')
-            # # ax[3].imshow(img_diff.cpu().detach().numpy(), cmap=colormap.gray)
-            # # ax[3].set_title('difference')
+            fig, axes = plt.subplots(1, 2, figsize=(6, 3))
+            ax = axes.ravel()
+            ax[0].imshow(self.diff_model.image_ref.cpu().detach().numpy(), cmap=colormap.gray)
+            ax[0].set_title('raw thresholding')
+            ax[1].imshow(self.img_render_binary.cpu().detach().numpy(), cmap=colormap.gray)
+            ax[1].set_title('render binary')
+            # ax[2].imshow(img_render_alpha.cpu().detach().numpy(), cmap=colormap.gray)
+            # ax[2].set_title('raw render')
+            # ax[3].imshow(img_diff.cpu().detach().numpy(), cmap=colormap.gray)
+            # ax[3].set_title('difference')
             # plt.show()
-            # fig.savefig(save_img_path)
-            # plt.close(fig)
+            fig.savefig(save_img_path)
+            plt.close(fig)
 
             # pdb.set_trace()
 
@@ -208,13 +210,19 @@ if __name__ == '__main__':
 
     para_gt = torch.tensor(
         [0.02003904, 0.0016096, 0.10205799, 0.02489567, -0.04695673, 0.196168896],
-        dtype=torch.float,
-    )
-    para_init = torch.tensor([0.01958988, 0.00195899, 0.09690406, -0.03142905, -0.0031429, 0.18200866],
+        dtype=torch.float)
+        
+    # para_init = torch.tensor([0.02003904, 0.0016096, 0.10205799, 0.02489567, -0.04695673, 0.196168896],
+    #                          dtype=torch.float).to(gpu_or_cpu)
+    # para_init = torch.tensor([0.01958988, 0.00195899, 0.09690406, -0.03142905, -0.0031429, 0.18200866],
+    #                          dtype=torch.float).to(gpu_or_cpu)
+    # para_init = torch.tensor([0.01991842,  0.0015921 ,  0.10058595, 0.01006802, -0.0476599 ,  0.18857363],
+    #                          dtype=torch.float).to(gpu_or_cpu)
+    para_init = torch.tensor([0.01999804,  0.00199607,  0.09950343, 0.01497524, -0.00804953,  0.19838609],
                              dtype=torch.float).to(gpu_or_cpu)
     para_init.requires_grad = True
 
-    total_itr_steps = 10
+    total_itr_steps = 100
 
     img_ref_rgb = cv2.imread(img_save_path)
     # img_ref_rgb = cv2.resize(img_ref_rgb, (int(raw_img_rgb.shape[1] / downscale), int(raw_img_rgb.shape[0] / downscale)))

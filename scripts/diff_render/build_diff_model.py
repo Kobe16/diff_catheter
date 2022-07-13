@@ -23,7 +23,7 @@ import pdb
 from construction_bezier import ConstructionBezier
 from blender_catheter import BlenderRenderCatheter
 from diff_render_catheter import DiffRenderCatheter
-from loss_define import ContourLoss, MaskLoss
+from loss_define import ContourLoss, MaskLoss, CenterlineLoss
 
 import pytorch3d
 
@@ -50,6 +50,9 @@ class DiffOptimizeModel(nn.Module):
 
         self.mask_loss = MaskLoss(device=gpu_or_cpu)
         self.mask_loss.to(gpu_or_cpu)
+
+        self.centerline_loss = CenterlineLoss(device=gpu_or_cpu)
+        self.centerline_loss.to(gpu_or_cpu)
 
         self.p_start = p_start.to(gpu_or_cpu)
 
@@ -103,7 +106,7 @@ class DiffOptimizeModel(nn.Module):
         self.torch3d_render_catheter.renderDeformedMesh(save_img_path)
 
         ###========================================================
-        ### Loss : try
+        ### Loss ： different types
         ###========================================================
         # img_render = self.torch3d_render_catheter.render_catheter_img[0, ..., 3].unsqueeze(0).unsqueeze(0)
         # # loss = torch.mean((img_render - self.image_ref.unsqueeze(0).unsqueeze(0))**2)
@@ -115,9 +118,11 @@ class DiffOptimizeModel(nn.Module):
         # max_img_render_alpha = torch.max(self.torch3d_render_catheter.render_catheter_img[0, ..., 3])
         # img_render_alpha_norm = img_render_alpha / max_img_render_alpha
         # img_diff = torch.abs(img_render_alpha_norm - self.image_ref)
-
-        # img_render_alpha = self.torch3d_render_catheter.render_catheter_img[0, ..., 3]
-        # loss, img_render_binary = self.mask_loss(img_render_alpha.unsqueeze(0), self.image_ref.unsqueeze(0))
+        
+        
+        ####  correct version
+        img_render_alpha = self.torch3d_render_catheter.render_catheter_img[0, ..., 3]
+        loss_mask, img_render_binary = self.mask_loss(img_render_alpha.unsqueeze(0), self.image_ref.unsqueeze(0))
         # img_diff = torch.abs(img_render_binary - self.image_ref)
 
         # fig, axes = plt.subplots(2, 2, figsize=(8, 8))
@@ -132,12 +137,19 @@ class DiffOptimizeModel(nn.Module):
         # ax[3].set_title('difference')
         # plt.show()
 
-        pdb.set_trace()
+        # pdb.set_trace()
 
-        loss = self.torch3d_render_catheter.render_catheter_img[0, ..., 0][1, 1]
-        loss = torch.sum(self.torch3d_render_catheter.render_catheter_img[0, ..., 3])
+
+        loss_centerline = self.centerline_loss(self.build_bezier.bezier_proj_img, self.image_ref)
+
+        # loss = self.torch3d_render_catheter.render_catheter_img[0, ..., 0][1, 1]
+        # loss = torch.sum(self.torch3d_render_catheter.render_catheter_img[0, ..., 3])
         # loss = self.torch3d_render_catheter.render_cameras.get_projection_transform().get_matrix()[0, 0, 0]
-        # loss = self.torch3d_render_catheter.updated_cylinder_primitive_mesh.verts_list()[0][0, 1]
-        img_render_binary = None
+        # loss = self.torch3d_render_catheter.updated_cylinder_primitive_mesh.verts_list()[0][0, 0]
+        # img_render_binary = None
+
+        loss = loss_mask + loss_centerline * 1
+        # loss = loss_mask 
+        
 
         return loss, img_render_binary

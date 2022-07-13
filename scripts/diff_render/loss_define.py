@@ -8,7 +8,12 @@ import torch.nn.functional as F
 import matplotlib.cm as colormap
 import matplotlib.pyplot as plt
 
+import skimage.morphology as skimage_morphology
+import cv2
+
 import pdb
+
+import numpy as np
 
 
 class ContourLoss(nn.Module):
@@ -71,15 +76,16 @@ class MaskLoss(nn.Module):
     def forward(self, img_render, img_ref):
         # Binarize img_render [0.0, 1.0] -> {0., 1.}
         # img_render = (img_render >= 0.1).float()   # Thresholding is NOT differentiable
-        img_render = 1 / (1 + torch.exp(-100 * (img_render - 0.1)))  # Differentiable binarization (approximation)
-        mask = (img_render > 0.1)
-        img_render = img_render * mask  # Zero out values above the threshold 0.5
+        
+        # img_render = 1 / (1 + torch.exp(-100 * (img_render - 0.1)))  # Differentiable binarization (approximation)
+        # mask = (img_render > 0.1)
+        # img_render = img_render * mask  # Zero out values above the threshold 0.5
 
         img_render_binary = img_render.squeeze()
 
-        img_diff = torch.abs(img_render - img_ref)
+        # img_diff = torch.abs(img_render - img_ref)**2
 
-        dist = img_diff.sum()
+        dist = torch.sum((img_render -img_ref) ** 2)
         assert (dist >= 0)
 
         # fig, axes = plt.subplots(2, 2, figsize=(8, 8))
@@ -95,3 +101,69 @@ class MaskLoss(nn.Module):
         # pdb.set_trace()
 
         return dist, img_render_binary
+
+
+class CenterlineLoss(nn.Module):
+
+    def __init__(self, device):
+        super(CenterlineLoss, self).__init__()
+        self.device = device
+
+        self.img_raw_skeleton = None
+
+    def forward(self, bezier_proj_img, img_ref):
+
+        self.get_raw_centerline(img_ref)
+        
+        loss_centerline = (bezier_proj_img[-1, 0] - self.img_raw_skeleton[0, 1])**2 + (bezier_proj_img[-1, 1] - self.img_raw_skeleton[0, 0])**2
+
+        # pdb.set_trace()
+
+        return loss_centerline
+
+    def get_raw_centerline(self, img_ref):
+
+        img_ref = img_ref.cpu().detach().numpy().copy()
+
+        img_height = img_ref.shape[0]
+        img_width = img_ref.shape[1]
+
+        # perform skeletonization, need to extend the boundary of the image
+        extend_dim = int(60)
+        img_thresh_extend = np.zeros((img_height, img_width + extend_dim))
+        img_thresh_extend[0:img_height, 0:img_width] = img_ref / 1.0
+
+        left_boundarylineA_id = np.squeeze(np.argwhere(img_thresh_extend[:, img_width - 1]))
+        left_boundarylineB_id = np.squeeze(np.argwhere(img_thresh_extend[:, img_width - 10]))
+
+        extend_vec_pt1_center = np.array([img_width, (left_boundarylineA_id[0] + left_boundarylineA_id[-1]) / 2])
+        extend_vec_pt2_center = np.array(
+            [img_width - 5, (left_boundarylineB_id[0] + left_boundarylineB_id[-1]) / 2])
+        exten_vec = extend_vec_pt2_center - extend_vec_pt1_center
+
+        if exten_vec[1] == 0:
+            exten_vec[1] += 0.00000001
+
+        k_extend = exten_vec[0] / exten_vec[1]
+        b_extend_up = img_width - k_extend * left_boundarylineA_id[0]
+        b_extend_dw = img_width - k_extend * left_boundarylineA_id[-1]
+
+        # then it could be able to get the intersection point with boundary
+        extend_ROI = np.array([
+            np.array([img_width, left_boundarylineA_id[0]]),
+            np.array([img_width, left_boundarylineA_id[-1]]),
+            np.array([img_width + extend_dim,
+                      int(((img_width + extend_dim) - b_extend_dw) / k_extend)]),
+            np.array([img_width + extend_dim,
+                      int(((img_width + extend_dim) - b_extend_up) / k_extend)])
+        ])
+
+        img_thresh_extend = cv2.fillPoly(img_thresh_extend, [extend_ROI], 1)
+
+        skeleton = skimage_morphology.skeletonize(img_thresh_extend)
+
+        img_raw_skeleton = np.argwhere(skeleton[:, 0:img_width] == 1)
+
+        self.img_raw_skeleton = torch.as_tensor(img_raw_skeleton).float()
+
+

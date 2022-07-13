@@ -97,26 +97,29 @@ class DiffRenderCatheter(nn.Module):
         # Create a Phong renderer by composing a rasterizer and a shader. The textured Phong shader will
         # interpolate the texture uv coordinates for each vertex, sample from a texture image and
         # apply the Phong lighting model
-        self.renderer_catheter = torch3d_render.MeshRenderer(
-            rasterizer=torch3d_render.MeshRasterizer(cameras=self.render_cameras, raster_settings=raster_settings),
-            shader=torch3d_render.SoftPhongShader(device=self.gpu_or_cpu,
-                                                  cameras=self.render_cameras,
-                                                  lights=self.lights))
         # self.renderer_catheter = torch3d_render.MeshRenderer(
         #     rasterizer=torch3d_render.MeshRasterizer(cameras=self.render_cameras, raster_settings=raster_settings),
-        #     shader=torch3d_render.SoftSilhouetteShader(
-        #         blend_params=torch3d_blending.BlendParams(sigma=1e-4, gamma=1e-4)))
+        #     shader=torch3d_render.SoftPhongShader(device=self.gpu_or_cpu,
+        #                                           cameras=self.render_cameras,
+        #                                           lights=self.lights))
+        self.renderer_catheter = torch3d_render.MeshRenderer(
+            rasterizer=torch3d_render.MeshRasterizer(cameras=self.render_cameras, raster_settings=raster_settings, eps=1e-4),
+            shader=torch3d_render.SoftSilhouetteShader(
+                blend_params=torch3d_blending.BlendParams(sigma=1e-2, gamma=1e-2)))
 
         self.render_catheter_img = self.renderer_catheter(self.updated_cylinder_primitive_mesh)
         # self.render_catheter_img = self.renderer_catheter(self.cylinder_primitive_mesh)
 
         # fig = plt.figure(figsize=(7, 5))
-        # plt.imshow(self.render_catheter_img[0, ..., 0:3].cpu().detach().numpy())
+        # plt.imshow(self.render_catheter_img[0, ..., 3].cpu().detach().numpy())
         # fig.tight_layout()
         # # plt.axis("off")
+        # plt.colorbar()
         # plt.show()
         # # fig.savefig(save_img_path)
         # plt.close(fig)
+
+        # pdb.set_trace()
 
     def forward(self):
         raise NotImplementedError
