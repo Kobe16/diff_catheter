@@ -134,7 +134,7 @@ class ConstructionBezier(nn.Module):
     def getBezierTNB(self, bezier_pos, bezier_der, bezier_snd_der):
 
         bezier_der_n = torch.linalg.norm(bezier_der, ord=2, dim=1)
-        self.bezier_tangent = bezier_der / torch.unsqueeze(bezier_der_n, dim=1)
+        # self.bezier_tangent = bezier_der / torch.unsqueeze(bezier_der_n, dim=1)
 
         bezier_normal_numerator = torch.linalg.cross(bezier_der, torch.linalg.cross(bezier_snd_der, bezier_der))
         bezier_normal_numerator_n = torch.mul(
@@ -146,6 +146,11 @@ class ConstructionBezier(nn.Module):
         bezier_binormal_numerator_n = torch.linalg.norm(bezier_binormal_numerator, ord=2, dim=1)
 
         self.bezier_binormal = bezier_binormal_numerator / torch.unsqueeze(bezier_binormal_numerator_n, dim=1)
+
+        # pdb.set_trace()
+
+        assert not torch.any(torch.isnan(self.bezier_normal))
+        assert not torch.any(torch.isnan(self.bezier_binormal))
 
     def getBezierSurface(self, bezier_pos):
 
@@ -272,6 +277,6 @@ class ConstructionBezier(nn.Module):
         # cv2.imwrite('./gradient_steps_imgs/tangent_draw_img_rgb_' + str(self.GD_Iteration) + '.jpg', tangent_draw_img_rgb)
 
         return centerline_draw_img_rgb, tangent_draw_img_rgb
-    
+
     def forward(self):
         raise NotImplementedError

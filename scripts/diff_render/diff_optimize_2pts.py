@@ -23,12 +23,15 @@ import pdb
 from construction_bezier import ConstructionBezier
 from blender_catheter import BlenderRenderCatheter
 from diff_render_catheter import DiffRenderCatheter
+from loss_define import ContourLoss, MaskLoss
 
 import pytorch3d
 
 import torch.nn as nn
-import matplotlib.cm as colormap
 import torch.nn.functional as F
+
+import matplotlib.cm as colormap
+
 from tqdm.notebook import tqdm
 
 
@@ -45,18 +48,22 @@ class DiffOptimizeModel(nn.Module):
         self.torch3d_render_catheter.to(gpu_or_cpu)
         self.torch3d_render_catheter.loadCylinderPrimitive(cylinder_primitive_path)
 
+        self.mask_loss = MaskLoss(device=gpu_or_cpu)
+        self.mask_loss.to(gpu_or_cpu)
+
         self.p_start = p_start.to(gpu_or_cpu)
 
+        ### Straight Line
+        self.para_init = nn.Parameter(torch.from_numpy(
+            np.array([0.01958988, 0.00195899, 0.09690406, -0.03142905, -0.0031429, 0.18200866],
+                     dtype=np.float32)).to(gpu_or_cpu),
+                                      requires_grad=True)
 
+        ### GT values
         # self.para_init = nn.Parameter(
         #     torch.from_numpy(
-        #         np.array([0.01958988, 0.00195899, 0.09690406, -0.03142905, -0.0031429, 0.18200866],
+        #         np.array([0.02003904, 0.0016096, 0.10205799, 0.02489567, -0.04695673, 0.196168896],
         #                  dtype=np.float32)).to(gpu_or_cpu))
-
-        self.para_init = nn.Parameter(
-            torch.from_numpy(
-                np.array([0.02003904, 0.0016096, 0.10205799, 0.02489567, -0.04695673, 0.196168896],
-                         dtype=np.float32)).to(gpu_or_cpu))
 
         # # Get the silhouette of the reference RGB image by finding all non-white pixel values.
         # image_ref = torch.from_numpy((image_ref[..., :3].max(-1) != 1).astype(np.float32))
@@ -86,29 +93,42 @@ class DiffOptimizeModel(nn.Module):
 
         ###========================================================
         ### Render Catheter Using PyTorch3D
-        ###========================================================\
+        ###========================================================
         self.torch3d_render_catheter.updateCylinderPrimitive(self.build_bezier.updated_surface_vertices)
         self.torch3d_render_catheter.renderDeformedMesh(save_img_path)
 
-
-
-        img_render = self.torch3d_render_catheter.render_catheter_img[0, ..., 3].unsqueeze(0).unsqueeze(0)
-        
-
+        ###========================================================
+        ### Loss : try
+        ###========================================================
+        # img_render = self.torch3d_render_catheter.render_catheter_img[0, ..., 3].unsqueeze(0).unsqueeze(0)
+        # # loss = torch.mean((img_render - self.image_ref.unsqueeze(0).unsqueeze(0))**2)
+        # loss = F.l1_loss(img_render, self.image_ref.unsqueeze(0).unsqueeze(0))
+        # print(loss)
         # loss = torch.mean((img_render - self.image_ref.unsqueeze(0).unsqueeze(0))**2)
-        loss = F.l1_loss(img_render, self.image_ref.unsqueeze(0).unsqueeze(0))
-        print(loss)
 
-        fig, axes = plt.subplots(1, 2, figsize=(10, 3))
-        ax = axes.ravel()
-        ax[0].imshow(self.image_ref.cpu().detach().numpy(), cmap=colormap.gray)
-        ax[0].set_title('raw thresholding')
-        ax[1].imshow(img_render.squeeze().cpu().detach().numpy(),
-                     cmap=colormap.gray)
-        ax[1].set_title('render')
-        plt.show()
+        # img_render_alpha = self.torch3d_render_catheter.render_catheter_img[0, ..., 3]
+        # max_img_render_alpha = torch.max(self.torch3d_render_catheter.render_catheter_img[0, ..., 3])
+        # img_render_alpha_norm = img_render_alpha / max_img_render_alpha
+        # img_diff = torch.abs(img_render_alpha_norm - self.image_ref)
 
-        pdb.set_trace()
+        img_render_alpha = self.torch3d_render_catheter.render_catheter_img[0, ..., 3]
+        loss, img_render_binary = self.mask_loss(img_render_alpha.unsqueeze(0), self.image_ref.unsqueeze(0))
+        img_diff = torch.abs(img_render_binary - self.image_ref)
+
+        # fig, axes = plt.subplots(2, 2, figsize=(8, 8))
+        # ax = axes.ravel()
+        # ax[0].imshow(self.image_ref.cpu().detach().numpy(), cmap=colormap.gray)
+        # ax[0].set_title('raw thresholding')
+        # ax[1].imshow(img_render_binary.cpu().detach().numpy(), cmap=colormap.gray)
+        # ax[1].set_title('render binary')
+        # ax[2].imshow(img_render_alpha.cpu().detach().numpy(), cmap=colormap.gray)
+        # ax[2].set_title('raw render')
+        # ax[3].imshow(img_diff.cpu().detach().numpy(), cmap=colormap.gray)
+        # ax[3].set_title('difference')
+        # plt.show()
+
+        # pdb.set_trace()
+
         return loss
 
 
@@ -195,7 +215,9 @@ if __name__ == '__main__':
     img_ref_rgb = cv2.imread(img_save_path)
     # img_ref_rgb = cv2.resize(img_ref_rgb, (int(raw_img_rgb.shape[1] / downscale), int(raw_img_rgb.shape[0] / downscale)))
     img_ref_gray = cv2.cvtColor(img_ref_rgb, cv2.COLOR_RGB2GRAY)
-    ret, img_ref_binary = cv2.threshold(img_ref_gray.copy(), 80, 255, cv2.THRESH_BINARY)
+    ret, img_ref_thre = cv2.threshold(img_ref_gray.copy(), 80, 255, cv2.THRESH_BINARY)
+
+    img_ref_binary = np.where(img_ref_thre == 255, 1, img_ref_thre)
 
     diff_model = DiffOptimizeModel(p_start=p_start,
                                    image_ref=img_ref_binary,
@@ -207,7 +229,7 @@ if __name__ == '__main__':
 
     # pdb.set_trace()
 
-    optimizer = torch.optim.Adam(diff_model.parameters(), lr=1e-3)
+    optimizer = torch.optim.Adam(diff_model.parameters(), lr=1e-4)
 
     # loss, _ = diff_model(save_img_path)
     # print(loss)
@@ -221,7 +243,7 @@ if __name__ == '__main__':
         optimizer.zero_grad()
         loss = diff_model(save_img_path)
 
-        pdb.set_trace()
+        # pdb.set_trace()
         loss.backward()
         optimizer.step()
 

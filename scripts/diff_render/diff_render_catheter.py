@@ -4,6 +4,7 @@ import pytorch3d.utils as torch3d_utils
 import pytorch3d.renderer as torch3d_render
 import pytorch3d.io as torch3d_io
 import pytorch3d.structures as torch3d_structures
+import pytorch3d.renderer.blending as torch3d_blending
 
 import torch
 
@@ -76,7 +77,7 @@ class DiffRenderCatheter(nn.Module):
         # principle = torch.tensor((cam_K[0, 2],cam_K[1, 2]), dtype=torch.float32).unsqueeze(0)
         # cameras = PerspectiveCameras(device=device, R=rot, T=trans, focal_length=focal, principal_point=principle, image_size=((480, 640),))
 
-    def renderDeformedMesh(self, save_img_path):
+    def renderDeformedMesh(self, save_img_path=None):
 
         # Define the settings for rasterization and shading. Here we set the output image to be of size
         # WIDTH x HEIGHT. As we are rendering images for visualization purposes only we will set faces_per_pixel=1
@@ -84,11 +85,10 @@ class DiffRenderCatheter(nn.Module):
         # the faster coarse-to-fine rasterization method is used. Refer to rasterize_meshes.py for
         # explanations of these parameters. Refer to docs/notes/renderer.md for an explanation of
         # the difference between naive and coarse-to-fine rasterization.
-        raster_settings = torch3d_render.RasterizationSettings(
-            image_size=(self.IMG_WIDTH, self.IMG_HEIGHT),
-            blur_radius=0.0,
-            faces_per_pixel=1,
-        )
+        raster_settings = torch3d_render.RasterizationSettings(image_size=(self.IMG_WIDTH, self.IMG_HEIGHT),
+                                                               blur_radius=0.0,
+                                                               faces_per_pixel=1,
+                                                               perspective_correct=False)
 
         # Place a point light in front of the object. As mentioned above, the front of the cow is facing the
         # -z direction.
@@ -102,17 +102,21 @@ class DiffRenderCatheter(nn.Module):
             shader=torch3d_render.SoftPhongShader(device=self.gpu_or_cpu,
                                                   cameras=self.render_cameras,
                                                   lights=self.lights))
+        # self.renderer_catheter = torch3d_render.MeshRenderer(
+        #     rasterizer=torch3d_render.MeshRasterizer(cameras=self.render_cameras, raster_settings=raster_settings),
+        #     shader=torch3d_render.SoftSilhouetteShader(
+        #         blend_params=torch3d_blending.BlendParams(sigma=1e-4, gamma=1e-4)))
 
         self.render_catheter_img = self.renderer_catheter(self.updated_cylinder_primitive_mesh)
         # self.render_catheter_img = self.renderer_catheter(self.cylinder_primitive_mesh)
 
-        fig = plt.figure(figsize=(7, 5))
-        plt.imshow(self.render_catheter_img[0, ..., 0:3].cpu().detach().numpy())
-        fig.tight_layout()
-        # plt.axis("off")
+        # fig = plt.figure(figsize=(7, 5))
+        # plt.imshow(self.render_catheter_img[0, ..., 0:3].cpu().detach().numpy())
+        # fig.tight_layout()
+        # # plt.axis("off")
         # plt.show()
-        fig.savefig(save_img_path)
-        plt.close(fig)
-    
+        # # fig.savefig(save_img_path)
+        # plt.close(fig)
+
     def forward(self):
         raise NotImplementedError
