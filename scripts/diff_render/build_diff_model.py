@@ -26,6 +26,7 @@ from diff_render_catheter import DiffRenderCatheter
 from loss_define import ContourLoss, MaskLoss, CenterlineLoss
 
 import pytorch3d
+import pytorch3d.io as torch3d_io
 
 import torch.nn as nn
 import torch.nn.functional as F
@@ -153,3 +154,11 @@ class DiffOptimizeModel(nn.Module):
         
 
         return loss, img_render_binary
+    
+    def saveUpdatedMesh(self, save_mesh_path=None):
+        updated_verts = self.torch3d_render_catheter.updated_cylinder_primitive_mesh.verts_list()
+        updated_faces = self.torch3d_render_catheter.updated_cylinder_primitive_mesh.faces_list()
+
+        # pdb.set_trace()
+        
+        torch3d_io.save_obj(save_mesh_path, updated_verts[0], updated_faces[0])

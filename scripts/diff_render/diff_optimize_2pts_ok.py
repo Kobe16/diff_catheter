@@ -95,9 +95,9 @@ class DoDiffOptimization(nn.Module):
             saved_value = np.hstack((last_loss.cpu().detach().numpy(), self.para_init.cpu().detach().numpy()))
             self.saved_para_history = np.vstack((self.saved_para_history, saved_value))
 
+
             save_img_path = '/home/fei/diff_catheter/scripts/diff_render/torch3d_rendered_imgs/' + 'render_' + str(
                 self.id_iteration) + '.jpg'  # save the figure to file
-
             fig, axes = plt.subplots(1, 2, figsize=(6, 3))
             ax = axes.ravel()
             ax[0].imshow(self.diff_model.image_ref.cpu().detach().numpy(), cmap=colormap.gray)
@@ -111,6 +111,10 @@ class DoDiffOptimization(nn.Module):
             # plt.show()
             fig.savefig(save_img_path)
             plt.close(fig)
+
+            save_mesh_path = '/home/fei/diff_catheter/scripts/diff_render/torch3d_rendered_imgs/meshes' + 'mesh_' + str(
+                self.id_iteration) + '.obj'  # save the figure to file
+            self.diff_model.saveUpdatedMesh(save_mesh_path)
 
             # pdb.set_trace()
 

@@ -24,7 +24,7 @@ images = []
 num = 0
 
 
-writer = imageio.get_writer('diff_curve_try2.gif', fps=10)
+writer = imageio.get_writer('diff_curve_ok1.gif', fps=10)
 for i in range(st_x, ed_x, 1):
 
     filename = os.path.join(args.src_dir, 'render_'+'%d.jpg' % i)
