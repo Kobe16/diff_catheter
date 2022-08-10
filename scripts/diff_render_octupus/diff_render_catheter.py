@@ -103,7 +103,9 @@ class DiffRenderCatheter(nn.Module):
         #                                           cameras=self.render_cameras,
         #                                           lights=self.lights))
         self.renderer_catheter = torch3d_render.MeshRenderer(
-            rasterizer=torch3d_render.MeshRasterizer(cameras=self.render_cameras, raster_settings=raster_settings, eps=1e-4),
+            rasterizer=torch3d_render.MeshRasterizer(cameras=self.render_cameras,
+                                                     raster_settings=raster_settings,
+                                                     eps=1e-4),
             shader=torch3d_render.SoftSilhouetteShader(
                 blend_params=torch3d_blending.BlendParams(sigma=1e-2, gamma=1e-2)))
 

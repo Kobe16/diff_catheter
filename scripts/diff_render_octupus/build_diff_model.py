@@ -9,7 +9,7 @@ import numpy as np
 # import transforms
 # import bezier_interspace_transforms
 from bezier_set import BezierSet
-import camera_settings
+# import camera_settings
 
 import torch
 
@@ -38,10 +38,10 @@ from tqdm.notebook import tqdm
 
 class DiffOptimizeModel(nn.Module):
 
-    def __init__(self, para_init, p_start, image_ref, cylinder_primitive_path, gpu_or_cpu):
+    def __init__(self, para_init, p_start, radius_start, radius_end, image_ref, cylinder_primitive_path, gpu_or_cpu):
         super().__init__()
 
-        self.build_bezier = ConstructionBezier()
+        self.build_bezier = ConstructionBezier(gpu_or_cpu=gpu_or_cpu)
         self.build_bezier.to(gpu_or_cpu)
 
         self.torch3d_render_catheter = DiffRenderCatheter(self.build_bezier.cam_RT_H, self.build_bezier.cam_K,
@@ -55,6 +55,9 @@ class DiffOptimizeModel(nn.Module):
         self.centerline_loss = CenterlineLoss(device=gpu_or_cpu)
         self.centerline_loss.to(gpu_or_cpu)
 
+        # self.centerline_loss = EndPointsLoss(device=gpu_or_cpu)
+        # self.centerline_loss.to(gpu_or_cpu)
+
         self.p_start = p_start.to(gpu_or_cpu)
 
         ### Straight Line
@@ -64,6 +67,9 @@ class DiffOptimizeModel(nn.Module):
         #                               requires_grad=True)
 
         self.para_init = para_init
+        self.radius_start = radius_start
+        self.radius_end = radius_end
+        self.gpu_or_cpu = gpu_or_cpu
 
         ### GT values
         # self.para_init = nn.Parameter(
@@ -84,17 +90,20 @@ class DiffOptimizeModel(nn.Module):
         ###========================================================
         ### get Bezier Surface
         ###========================================================
+        ## define bezier radius
+        self.build_bezier.getBezierRadius(self.radius_start, self.radius_end)
         ## define a bezier curve
         self.build_bezier.getBezierCurve(self.para_init, self.p_start)
         ## get the bezier in TNB frame, in order to build a tube mesh
-        # build_bezier.getBezierTNB(build_bezier.bezier_pos_cam, build_bezier.bezier_der_cam, build_bezier.bezier_snd_der_cam)
-        self.build_bezier.getBezierTNB(self.build_bezier.bezier_pos, self.build_bezier.bezier_der,
-                                       self.build_bezier.bezier_snd_der)
+        self.build_bezier.getBezierTNB(self.build_bezier.bezier_pos_cam, self.build_bezier.bezier_der_cam,
+                                       self.build_bezier.bezier_snd_der_cam)
+        # self.build_bezier.getBezierTNB(self.build_bezier.bezier_pos, self.build_bezier.bezier_der,
+        #                                self.build_bezier.bezier_snd_der)
 
         ## get bezier surface mesh
         ## ref : https://mathworld.wolfram.com/Tube.html
-        # build_bezier.getBezierSurface(build_bezier.bezier_pos_cam)
-        self.build_bezier.getBezierSurface(self.build_bezier.bezier_pos)
+        self.build_bezier.getBezierSurface(self.build_bezier.bezier_pos_cam)
+        # self.build_bezier.getBezierSurface(self.build_bezier.bezier_pos)
 
         # self.build_bezier.createCylinderPrimitive()
         # build_bezier.createOpen3DVisualizer()
@@ -119,27 +128,25 @@ class DiffOptimizeModel(nn.Module):
         # max_img_render_alpha = torch.max(self.torch3d_render_catheter.render_catheter_img[0, ..., 3])
         # img_render_alpha_norm = img_render_alpha / max_img_render_alpha
         # img_diff = torch.abs(img_render_alpha_norm - self.image_ref)
-        
-        
+
         ####  correct version
         img_render_alpha = self.torch3d_render_catheter.render_catheter_img[0, ..., 3]
         loss_mask, img_render_binary = self.mask_loss(img_render_alpha.unsqueeze(0), self.image_ref.unsqueeze(0))
-        # img_diff = torch.abs(img_render_binary - self.image_ref)
+        img_diff = torch.abs(img_render_binary - self.image_ref)
 
-        # fig, axes = plt.subplots(2, 2, figsize=(8, 8))
-        # ax = axes.ravel()
-        # ax[0].imshow(self.image_ref.cpu().detach().numpy(), cmap=colormap.gray)
-        # ax[0].set_title('raw thresholding')
-        # ax[1].imshow(img_render_binary.cpu().detach().numpy(), cmap=colormap.gray)
-        # ax[1].set_title('render binary')
-        # ax[2].imshow(img_render_alpha.cpu().detach().numpy(), cmap=colormap.gray)
-        # ax[2].set_title('raw render')
-        # ax[3].imshow(img_diff.cpu().detach().numpy(), cmap=colormap.gray)
-        # ax[3].set_title('difference')
-        # plt.show()
+        fig, axes = plt.subplots(2, 2, figsize=(8, 8))
+        ax = axes.ravel()
+        ax[0].imshow(self.image_ref.cpu().detach().numpy(), cmap=colormap.gray)
+        ax[0].set_title('raw thresholding')
+        ax[1].imshow(img_render_binary.cpu().detach().numpy(), cmap=colormap.gray)
+        ax[1].set_title('render binary')
+        ax[2].imshow(img_render_alpha.cpu().detach().numpy(), cmap=colormap.gray)
+        ax[2].set_title('raw render')
+        ax[3].imshow(img_diff.cpu().detach().numpy(), cmap=colormap.gray)
+        ax[3].set_title('difference')
+        plt.show()
 
-        # pdb.set_trace()
-
+        pdb.set_trace()
 
         loss_centerline = self.centerline_loss(self.build_bezier.bezier_proj_img, self.image_ref)
 
@@ -150,15 +157,14 @@ class DiffOptimizeModel(nn.Module):
         # img_render_binary = None
 
         loss = loss_mask + loss_centerline * 1
-        # loss = loss_mask 
-        
+        # loss = loss_mask
 
         return loss, img_render_binary
-    
+
     def saveUpdatedMesh(self, save_mesh_path=None):
         updated_verts = self.torch3d_render_catheter.updated_cylinder_primitive_mesh.verts_list()
         updated_faces = self.torch3d_render_catheter.updated_cylinder_primitive_mesh.faces_list()
 
         # pdb.set_trace()
-        
+
         torch3d_io.save_obj(save_mesh_path, updated_verts[0], updated_faces[0])

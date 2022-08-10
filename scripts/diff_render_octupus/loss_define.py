@@ -76,7 +76,7 @@ class MaskLoss(nn.Module):
     def forward(self, img_render, img_ref):
         # Binarize img_render [0.0, 1.0] -> {0., 1.}
         # img_render = (img_render >= 0.1).float()   # Thresholding is NOT differentiable
-        
+
         # img_render = 1 / (1 + torch.exp(-100 * (img_render - 0.1)))  # Differentiable binarization (approximation)
         # mask = (img_render > 0.1)
         # img_render = img_render * mask  # Zero out values above the threshold 0.5
@@ -85,7 +85,7 @@ class MaskLoss(nn.Module):
 
         # img_diff = torch.abs(img_render - img_ref)**2
 
-        dist = torch.sum((img_render -img_ref) ** 2)
+        dist = torch.sum((img_render - img_ref)**2)
         assert (dist >= 0)
 
         # fig, axes = plt.subplots(2, 2, figsize=(8, 8))
@@ -114,8 +114,9 @@ class CenterlineLoss(nn.Module):
     def forward(self, bezier_proj_img, img_ref):
 
         self.get_raw_centerline(img_ref)
-        
-        loss_centerline = (bezier_proj_img[-1, 0] - self.img_raw_skeleton[0, 1])**2 + (bezier_proj_img[-1, 1] - self.img_raw_skeleton[0, 0])**2
+
+        loss_centerline = (bezier_proj_img[-1, 0] - self.img_raw_skeleton[0, 1])**2 + (bezier_proj_img[-1, 1] -
+                                                                                       self.img_raw_skeleton[0, 0])**2
 
         # pdb.set_trace()
 
@@ -137,8 +138,7 @@ class CenterlineLoss(nn.Module):
         left_boundarylineB_id = np.squeeze(np.argwhere(img_thresh_extend[:, img_width - 10]))
 
         extend_vec_pt1_center = np.array([img_width, (left_boundarylineA_id[0] + left_boundarylineA_id[-1]) / 2])
-        extend_vec_pt2_center = np.array(
-            [img_width - 5, (left_boundarylineB_id[0] + left_boundarylineB_id[-1]) / 2])
+        extend_vec_pt2_center = np.array([img_width - 5, (left_boundarylineB_id[0] + left_boundarylineB_id[-1]) / 2])
         exten_vec = extend_vec_pt2_center - extend_vec_pt1_center
 
         if exten_vec[1] == 0:
@@ -165,5 +165,3 @@ class CenterlineLoss(nn.Module):
         img_raw_skeleton = np.argwhere(skeleton[:, 0:img_width] == 1)
 
         self.img_raw_skeleton = torch.as_tensor(img_raw_skeleton).float()
-
-

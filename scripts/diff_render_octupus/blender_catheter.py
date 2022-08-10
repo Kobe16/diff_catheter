@@ -9,7 +9,7 @@ import numpy as np
 # import transforms
 # import bezier_interspace_transforms
 from bezier_set import BezierSet
-import camera_settings
+# import camera_settings
 
 import torch
 

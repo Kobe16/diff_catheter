@@ -9,7 +9,7 @@ import numpy as np
 # import transforms
 # import bezier_interspace_transforms
 from bezier_set import BezierSet
-import camera_settings
+# import camera_settings
 
 import torch
 from torch import autograd
@@ -131,24 +131,28 @@ class DoDiffOptimization(nn.Module):
 
 if __name__ == '__main__':
 
-    # para_gt = torch.tensor([0.02003904, 0.0016096, 0.10205799, 0.02489567, -0.04695673, 0.196168896], dtype=torch.float)
-    p_start = torch.tensor([0.02, 0.002, 0.0])
+    # p_start = torch.tensor([0.5, 0.5, 0.5])
 
-    # para_init = torch.tensor([0.02, 0.002, 0.15, 0.03, -0.05, 0.2], dtype=torch.float, requires_grad=True)
-    # para_init = torch.tensor([0.01958988, 0.00195899, 0.09690406, -0.03142905, -0.0031429, 0.18200866],
-    #                          dtype=torch.float)
-    # para_init = torch.tensor([0.02003904, 0.0016096, 0.10205799, 0.02489567, -0.04695673, 0.196168896],
+    # para_gt = torch.tensor([
+    #     0.5, 0.5, 0.5, 35.37860277150629, 3.7807340989748486, -2.7807340989748557, 36.085861528232165, 7.06569109504143,
+    #     -6.065691095041432, 1.9999573999981042, 0.40002940478525545
+    # ],
+    #                        dtype=torch.float)
+
+    # para_init = torch.tensor([
+    #     0.5, 0.5, 0.5, 35.37860277150629, 3.7820790965179647, -2.78207909651797, 36.085861528232165, 7.06569109504143,
+    #     -6.065691095041432, 1.9999573999981042, 0.40002940478525545
+    # ],
     #                          dtype=torch.float)
 
-    # case_naming = '/home/fei/ARCLab-CCCatheter/scripts/diff_render/blender_imgs/diff_render_1'
-    case_naming = '/home/fei/diff_catheter/scripts/diff_render/blender_imgs/diff_render_1'
+    case_naming = '/home/fei/diff_catheter/data/octupus_frames/top/frame_0199'
     img_save_path = case_naming + '.png'
     cc_specs_path = case_naming + '.npy'
     target_specs_path = None
     viewpoint_mode = 1
     transparent_mode = 0
 
-    cylinder_primitive_path = '/home/fei/diff_catheter/scripts/diff_render/blender_imgs/cylinder_primitve.obj'
+    cylinder_primitive_path = '/home/fei/diff_catheter/scripts/diff_render_octupus/shape_primitive/cylinder_primitve.obj'
 
     ###========================================================
     ### Render catheter using Blender
@@ -159,40 +163,48 @@ if __name__ == '__main__':
     # raw_render_catheter.render_bezier_in_blender(cc_specs_path, img_save_path, target_specs_path, viewpoint_mode,
     #                                           transparoptimizerent_mode)
 
-    ##========================================================
-    ## Build Bezier Suface Mesh
-    ##========================================================
-    build_bezier = ConstructionBezier()
+    # ##========================================================
+    # ## Build Bezier Suface Mesh
+    # ##========================================================
+    # build_octupus = ConstructionBezier()
 
-    ## define a bezier curve
-    build_bezier.getBezierCurve(para_init, p_start)
+    # ## define bezier radius
+    # build_octupus.getBezierRadius(para_init[9], para_init[10])
 
-    ## get the bezier in TNB frame, in order to build a tube mesh
-    # build_bezier.getBezierTNB(build_bezier.bezier_pos_cam, build_bezier.bezier_der_cam,
-    #                            build_bezier.bezier_snd_der_cam)
-    build_bezier.getBezierTNB(build_bezier.bezier_pos, build_bezier.bezier_der, build_bezier.bezier_snd_der)
+    # ## define a bezier curve
+    # build_octupus.getBezierCurve(para_init[3:9], p_start=para_init[0:3])
 
-    ## get bezier surface mesh
-    ## ref : https://mathworld.wolfram.com/Tube.html
-    # build_bezier.getBezierSurface(build_bezier.bezier_pos_cam)
-    build_bezier.getBezierSurface(build_bezier.bezier_pos)
+    # ## get the bezier in TNB frame, in order to build a tube mesh
+    # build_octupus.getBezierTNB(build_octupus.bezier_pos_cam, build_octupus.bezier_der_cam,
+    #                            build_octupus.bezier_snd_der_cam)
+    # # build_octupus.getBezierTNB(build_octupus.bezier_pos, build_octupus.bezier_der, build_octupus.bezier_snd_der)
 
-    build_bezier.createCylinderPrimitive()
-    # build_bezier.createOpen3DVisualizer()
-    build_bezier.updateOpen3DVisualizer()
+    # # ## get bezier surface mesh
+    # # ## ref : https://mathworld.wolfram.com/Tube.html
+    # build_octupus.getBezierSurface(build_octupus.bezier_pos_cam)
+    # # build_octupus.getBezierSurface(build_octupus.bezier_pos)
 
-    # ## load the raw RGB image
-    # # build_bezier.loadRawImage(img_save_path)
-    # build_bezier.proj_bezier_img = build_bezier.getProjPointCam(build_bezier.bezier_pos_cam, build_bezier.cam_K)
-    # # build_bezier.draw2DCenterlineImage()
+    # # build_octupus.createCylinderPrimitive()
+    # # # build_octupus.createOpen3DVisualizer()
+    # # build_octupus.updateOpen3DVisualizer()
+
+    # # ## load the raw RGB image
+    # build_octupus.loadRawImage(img_save_path)
+
+    # # the following line is already implemented in "getBezierCurve" func
+    # # build_octupus.proj_bezier_img = build_octupus.getProjPointCam(build_octupus.bezier_pos_cam, build_octupus.cam_K)
+
+    # build_octupus.draw2DCenterlineImage()
+
+    # pdb.set_trace()
 
     ###========================================================
     ### Differentiable Rendering
     ###========================================================
-    # torch3d_render_catheter = DiffRenderCatheter(build_bezier.cam_RT_H, build_bezier.cam_K)
+    # torch3d_render_catheter = DiffRenderCatheter(build_octupus.cam_RT_H, build_octupus.cam_K)
     # torch3d_render_catheter.loadCylinderPrimitive(cylinder_primitive_path)
 
-    # torch3d_render_catheter.updateCylinderPrimitive(build_bezier.updated_surface_vertices)
+    # torch3d_render_catheter.updateCylinderPrimitive(build_octupus.updated_surface_vertices)
 
     # img_id = 0
     # save_img_path = '/home/fei/diff_catheter/scripts/diff_render/blender_imgs/torch3d_rendered_imgs/' + 'torch3d_render_' + str(
@@ -211,16 +223,18 @@ if __name__ == '__main__':
 
     # gpu_or_cpu = torch.device("cpu")
 
-    para_gt = torch.tensor([0.02003904, 0.0016096, 0.10205799, 0.02489567, -0.04695673, 0.196168896], dtype=torch.float)
+    para_gt = torch.tensor([
+        0.5, 0.5, 0.5, 35.37860277150629, 3.7807340989748486, -2.7807340989748557, 36.085861528232165, 7.06569109504143,
+        -6.065691095041432, 1.9999573999981042, 0.40002940478525545
+    ],
+                           dtype=torch.float)
 
-    # para_init = torch.tensor([0.02003904, 0.0016096, 0.10205799, 0.02489567, -0.04695673, 0.196168896],
-    #                          dtype=torch.float).to(gpu_or_cpu)
-    # para_init = torch.tensor([0.01958988, 0.00195899, 0.09690406, -0.03142905, -0.0031429, 0.18200866],
-    #                          dtype=torch.float).to(gpu_or_cpu)
-    # para_init = torch.tensor([0.01991842,  0.0015921 ,  0.10058595, 0.01006802, -0.0476599 ,  0.18857363],
-    #                          dtype=torch.float).to(gpu_or_cpu)
-    para_init = torch.tensor([0.01999804, 0.00199607, 0.09950343, 0.01497524, -0.00804953, 0.19838609],
+    para_init = torch.tensor([
+        0.5, 0.5, 0.5, 35.37860277150629, 3.7820790965179647, -2.78207909651797, 36.085861528232165, 7.06569109504143,
+        -6.065691095041432, 1.9999573999981042, 0.40002940478525545
+    ],
                              dtype=torch.float).to(gpu_or_cpu)
+
     para_init.requires_grad = True
 
     total_itr_steps = 100
@@ -228,12 +242,15 @@ if __name__ == '__main__':
     img_ref_rgb = cv2.imread(img_save_path)
     # img_ref_rgb = cv2.resize(img_ref_rgb, (int(raw_img_rgb.shape[1] / downscale), int(raw_img_rgb.shape[0] / downscale)))
     img_ref_gray = cv2.cvtColor(img_ref_rgb, cv2.COLOR_RGB2GRAY)
-    ret, img_ref_thre = cv2.threshold(img_ref_gray.copy(), 80, 255, cv2.THRESH_BINARY)
+    ret, img_ref_thre = cv2.threshold(img_ref_gray.copy(), 245, 255, cv2.THRESH_BINARY_INV)
+    img_ref_thre_inv = cv2.bitwise_not(img_ref_thre)
 
-    img_ref_binary = np.where(img_ref_thre == 255, 1, img_ref_thre)
+    img_ref_binary = np.where(img_ref_thre_inv == 255, 1, img_ref_thre_inv)
 
-    diff_model = DiffOptimizeModel(para_init=para_init,
-                                   p_start=p_start,
+    diff_model = DiffOptimizeModel(para_init=para_init[3:9],
+                                   p_start=para_init[0:3],
+                                   radius_start=para_init[9],
+                                   radius_end=para_init[10],
                                    image_ref=img_ref_binary,
                                    cylinder_primitive_path=cylinder_primitive_path,
                                    gpu_or_cpu=gpu_or_cpu).to(gpu_or_cpu)
