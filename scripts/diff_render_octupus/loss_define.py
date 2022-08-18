@@ -165,3 +165,22 @@ class CenterlineLoss(nn.Module):
         img_raw_skeleton = np.argwhere(skeleton[:, 0:img_width] == 1)
 
         self.img_raw_skeleton = torch.as_tensor(img_raw_skeleton).float()
+
+
+class EndPointsLoss(nn.Module):
+
+    def __init__(self, device):
+        super(EndPointsLoss, self).__init__()
+        self.device = device
+
+    def forward(self, bezier_proj_img, img_gt_skeleton):
+
+        self.img_gt_skeleton = img_gt_skeleton
+
+        loss_startpoint = torch.linalg.norm(bezier_proj_img[0, :] - self.img_gt_skeleton[0, :], ord=None, axis=0)
+        loss_endpoint = torch.linalg.norm(bezier_proj_img[-1, :] - self.img_gt_skeleton[-1, :], ord=None, axis=0)
+
+        loss_endpoints = loss_startpoint + loss_endpoint
+        # pdb.set_trace()
+
+        return loss_endpoints

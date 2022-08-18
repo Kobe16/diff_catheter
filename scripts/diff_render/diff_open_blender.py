@@ -131,7 +131,7 @@ class DoDiffOptimization(nn.Module):
 
 if __name__ == '__main__':
 
-    # para_gt = torch.tensor([0.02003904, 0.0016096, 0.10205799, 0.02489567, -0.04695673, 0.196168896], dtype=torch.float)
+    para_gt = torch.tensor([0.02003904, 0.0016096, 0.10205799, 0.02489567, -0.04695673, 0.196168896], dtype=torch.float)
     p_start = torch.tensor([0.02, 0.002, 0.0])
 
     # para_init = torch.tensor([0.02, 0.002, 0.15, 0.03, -0.05, 0.2], dtype=torch.float, requires_grad=True)
@@ -150,14 +150,14 @@ if __name__ == '__main__':
 
     cylinder_primitive_path = '/home/fei/diff_catheter/scripts/diff_render/blender_imgs/cylinder_primitve.obj'
 
-    ###========================================================
-    ### Render catheter using Blender
-    ###========================================================
-    # raw_render_catheter = BlenderRenderCatheter()
-    # raw_render_catheter.set_bezier_in_blender(para_gt.detach().numpy(), p_start.detach().numpy())
+    ##========================================================
+    ## Render catheter using Blender
+    ##========================================================
+    raw_render_catheter = BlenderRenderCatheter()
+    raw_render_catheter.set_bezier_in_blender(para_gt.detach().numpy(), p_start.detach().numpy())
 
-    # raw_render_catheter.render_bezier_in_blender(cc_specs_path, img_save_path, target_specs_path, viewpoint_mode,
-    #                                           transparent_mode)
+    raw_render_catheter.render_bezier_in_blender(cc_specs_path, img_save_path, target_specs_path, viewpoint_mode,
+                                                 transparent_mode)
 
     ###========================================================
     ### Build Bezier Suface Mesh
@@ -199,49 +199,49 @@ if __name__ == '__main__':
     #     img_id) + '.jpg'  # save the figure to file
     # # torch3d_render_catheter.renderDeformedMesh(save_img_path)
 
-    ###========================================================
-    ### Optimization Rendering
-    ###========================================================
-    ## Set the cuda device
-    if torch.cuda.is_available():
-        gpu_or_cpu = torch.device("cuda:0")
-        torch.cuda.set_device(gpu_or_cpu)
-    else:
-        gpu_or_cpu = torch.device("cpu")
+    # ###========================================================
+    # ### Optimization Rendering
+    # ###========================================================
+    # ## Set the cuda device
+    # if torch.cuda.is_available():
+    #     gpu_or_cpu = torch.device("cuda:0")
+    #     torch.cuda.set_device(gpu_or_cpu)
+    # else:
+    #     gpu_or_cpu = torch.device("cpu")
 
-    # gpu_or_cpu = torch.device("cpu")
+    # # gpu_or_cpu = torch.device("cpu")
 
-    para_gt = torch.tensor([0.02003904, 0.0016096, 0.10205799, 0.02489567, -0.04695673, 0.196168896], dtype=torch.float)
+    # para_gt = torch.tensor([0.02003904, 0.0016096, 0.10205799, 0.02489567, -0.04695673, 0.196168896], dtype=torch.float)
 
-    # para_init = torch.tensor([0.02003904, 0.0016096, 0.10205799, 0.02489567, -0.04695673, 0.196168896],
+    # # para_init = torch.tensor([0.02003904, 0.0016096, 0.10205799, 0.02489567, -0.04695673, 0.196168896],
+    # #                          dtype=torch.float).to(gpu_or_cpu)
+    # # para_init = torch.tensor([0.01958988, 0.00195899, 0.09690406, -0.03142905, -0.0031429, 0.18200866],
+    # #                          dtype=torch.float).to(gpu_or_cpu)
+    # # para_init = torch.tensor([0.01991842,  0.0015921 ,  0.10058595, 0.01006802, -0.0476599 ,  0.18857363],
+    # #                          dtype=torch.float).to(gpu_or_cpu)
+    # para_init = torch.tensor([0.01999804, 0.00199607, 0.09950343, 0.01497524, -0.00804953, 0.19838609],
     #                          dtype=torch.float).to(gpu_or_cpu)
-    # para_init = torch.tensor([0.01958988, 0.00195899, 0.09690406, -0.03142905, -0.0031429, 0.18200866],
-    #                          dtype=torch.float).to(gpu_or_cpu)
-    # para_init = torch.tensor([0.01991842,  0.0015921 ,  0.10058595, 0.01006802, -0.0476599 ,  0.18857363],
-    #                          dtype=torch.float).to(gpu_or_cpu)
-    para_init = torch.tensor([0.01999804, 0.00199607, 0.09950343, 0.01497524, -0.00804953, 0.19838609],
-                             dtype=torch.float).to(gpu_or_cpu)
-    para_init.requires_grad = True
+    # para_init.requires_grad = True
 
-    total_itr_steps = 100
+    # total_itr_steps = 100
 
-    img_ref_rgb = cv2.imread(img_save_path)
-    # img_ref_rgb = cv2.resize(img_ref_rgb, (int(raw_img_rgb.shape[1] / downscale), int(raw_img_rgb.shape[0] / downscale)))
-    img_ref_gray = cv2.cvtColor(img_ref_rgb, cv2.COLOR_RGB2GRAY)
-    ret, img_ref_thre = cv2.threshold(img_ref_gray.copy(), 80, 255, cv2.THRESH_BINARY)
+    # img_ref_rgb = cv2.imread(img_save_path)
+    # # img_ref_rgb = cv2.resize(img_ref_rgb, (int(raw_img_rgb.shape[1] / downscale), int(raw_img_rgb.shape[0] / downscale)))
+    # img_ref_gray = cv2.cvtColor(img_ref_rgb, cv2.COLOR_RGB2GRAY)
+    # ret, img_ref_thre = cv2.threshold(img_ref_gray.copy(), 80, 255, cv2.THRESH_BINARY)
 
-    img_ref_binary = np.where(img_ref_thre == 255, 1, img_ref_thre)
+    # img_ref_binary = np.where(img_ref_thre == 255, 1, img_ref_thre)
 
-    diff_model = DiffOptimizeModel(para_init=para_init,
-                                   p_start=p_start,
-                                   image_ref=img_ref_binary,
-                                   cylinder_primitive_path=cylinder_primitive_path,
-                                   gpu_or_cpu=gpu_or_cpu).to(gpu_or_cpu)
+    # diff_model = DiffOptimizeModel(para_init=para_init,
+    #                                p_start=p_start,
+    #                                image_ref=img_ref_binary,
+    #                                cylinder_primitive_path=cylinder_primitive_path,
+    #                                gpu_or_cpu=gpu_or_cpu).to(gpu_or_cpu)
 
-    do_diff = DoDiffOptimization(para_init=para_init,
-                                 para_gt=para_gt,
-                                 diff_model=diff_model,
-                                 total_itr_steps=total_itr_steps,
-                                 if_print_log=1)
+    # do_diff = DoDiffOptimization(para_init=para_init,
+    #                              para_gt=para_gt,
+    #                              diff_model=diff_model,
+    #                              total_itr_steps=total_itr_steps,
+    #                              if_print_log=1)
 
-    do_diff.doOptimization()
+    # do_diff.doOptimization()

@@ -52,7 +52,7 @@ image_save_dir = '/home/inffzy/nutstore_files/arclab_research/ARCLab-CCCatheter/
 video_save_dir = '/home/inffzy/nutstore_files/arclab_research/ARCLab-CCCatheter/data/rendered_videos'
 contour_images_dir = '/home/inffzy/nutstore_files/arclab_research/ARCLab-CCCatheter/data/contour_images'
 
-blender_dir = '/home/fei/Programs/blender-3.2.0-linux-x64'
+blender_dir = '/home/fei/Program/blender-3.2.0-linux-x64'
 bezier_render_script = '/home/fei/diff_catheter/blender_files/render_bezier_blender.py'
 
 target_parameters_dir = '/home/inffzy/nutstore_files/arclab_research/ARCLab-CCCatheter/data/target_parameters'

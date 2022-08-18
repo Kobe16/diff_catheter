@@ -37,9 +37,9 @@ class ConstructionBezier(nn.Module):
         self.cam_K = torch.tensor([[879.19277423, 0., 320.], [0., 879.19277423, 240.], [0., 0., 1.]]).to(gpu_or_cpu)
 
         # camera E parameters
-        # cam_RT_H = torch.tensor([[1., 0., 0., -20.5], [-0., -0., -1., 0.5], [-0., -1., -0., 64.5], [0., 0., 0.,
-        #                                                                                             1.]]).to(gpu_or_cpu)
-        cam_RT_H = torch.tensor([[1., 0., 0., 0.], [0., 1., 0., 0.], [0., 0., 1., 0.], [0., 0., 0., 1.]]).to(gpu_or_cpu)
+        cam_RT_H = torch.tensor([[1., 0., 0., -20.5], [-0., -0., -1., 0.5], [-0., -1., -0., 64.5], [0., 0., 0.,
+                                                                                                    1.]]).to(gpu_or_cpu)
+        # cam_RT_H = torch.tensor([[1., 0., 0., 0.], [0., 1., 0., 0.], [0., 0., 1., 0.], [0., 0., 0., 1.]]).to(gpu_or_cpu)
         invert_y = torch.tensor([[1., 0., 0., 0.], [0., 1., 0., 0.], [0., 0., 1., 0.], [0., 0., 0., 1.]]).to(gpu_or_cpu)
         self.cam_RT_H = torch.matmul(invert_y, cam_RT_H)
 
@@ -151,6 +151,25 @@ class ConstructionBezier(nn.Module):
         self.bezier_proj_img = self.getProjPointCam(self.bezier_pos_cam[0:], self.cam_K)
 
         # pdb.set_trace()
+
+    ## get the ground truth skeleton projected in the image
+    def getGroundTruthCenterlineCam(self, gt_centline_3d):
+        self.gt_centline_3d = torch.from_numpy(gt_centline_3d.astype(np.float32)).to(self.gpu_or_cpu)
+
+        num_gt_centline_3d = self.gt_centline_3d.shape[0]
+
+        # Convert to camera frame
+        gt_centline_3d_H = torch.cat((self.gt_centline_3d, torch.ones(num_gt_centline_3d, 1).to(self.gpu_or_cpu)),
+                                     dim=1)
+
+        gt_centline_3d_cam_H = torch.transpose(torch.matmul(self.cam_RT_H, torch.transpose(gt_centline_3d_H, 0, 1)), 0,
+                                               1)
+        self.gt_centline_3d_cam = gt_centline_3d_cam_H[:, :-1]
+
+        # Convert to image
+        self.gt_centline_proj_img = self.getProjPointCam(self.gt_centline_3d_cam[:], self.cam_K)
+
+        # return self.gt_centline_proj_img
 
     def getProjPointCam(self, p, cam_K):
         # p is of size R^(Nx3)

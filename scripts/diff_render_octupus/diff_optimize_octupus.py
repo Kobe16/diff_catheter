@@ -47,7 +47,7 @@ class DoDiffOptimization(nn.Module):
         self.diff_model = diff_model
         self.total_itr_steps = total_itr_steps
 
-        self.optimizer = torch.optim.Adam([self.para_init], lr=1e-3)
+        self.optimizer = torch.optim.Adam([self.para_init], lr=0.1)
 
         self.saved_para_history = np.zeros((1, self.para_init.shape[0] + 1))
         self.GD_Iteration = 0
@@ -95,7 +95,7 @@ class DoDiffOptimization(nn.Module):
             saved_value = np.hstack((last_loss.cpu().detach().numpy(), self.para_init.cpu().detach().numpy()))
             self.saved_para_history = np.vstack((self.saved_para_history, saved_value))
 
-            save_img_path = '/home/fei/diff_catheter/scripts/diff_render/torch3d_rendered_imgs/' + 'render_' + str(
+            save_img_path = '/home/fei/diff_catheter/scripts/diff_render_octupus/torch3d_rendered_imgs/' + 'render_' + str(
                 self.id_iteration) + '.jpg'  # save the figure to file
             fig, axes = plt.subplots(1, 2, figsize=(6, 3))
             ax = axes.ravel()
@@ -111,9 +111,9 @@ class DoDiffOptimization(nn.Module):
             fig.savefig(save_img_path)
             plt.close(fig)
 
-            save_mesh_path = '/home/fei/diff_catheter/scripts/diff_render/torch3d_rendered_imgs/meshes' + 'mesh_' + str(
-                self.id_iteration) + '.obj'  # save the figure to file
-            self.diff_model.saveUpdatedMesh(save_mesh_path)
+            # save_mesh_path = '/home/fei/diff_catheter/scripts/diff_render/torch3d_rendered_imgs/meshes' + 'mesh_' + str(
+            #     self.id_iteration) + '.obj'  # save the figure to file
+            # self.diff_model.saveUpdatedMesh(save_mesh_path)
 
             # pdb.set_trace()
 
@@ -223,19 +223,33 @@ if __name__ == '__main__':
 
     # gpu_or_cpu = torch.device("cpu")
 
+    ### case with radius
+    # para_gt = torch.tensor([
+    #     0.5, 0.5, 0.5, 35.37860277150629, 3.7807340989748486, -2.7807340989748557, 36.085861528232165, 7.06569109504143,
+    #     -6.065691095041432, 1.9999573999981042, 0.40002940478525545
+    # ],
+    #                        dtype=torch.float)
+
+    # para_init = torch.tensor([
+    #     0.5, 0.5, 0.5, 35.37860277150629, 3.7820790965179647, -2.78207909651797, 36.085861528232165, 7.06569109504143,
+    #     -6.065691095041432, 1.9999573999981042, 0.40002940478525545
+    # ],
+    #                          dtype=torch.float).to(gpu_or_cpu)
     para_gt = torch.tensor([
-        0.5, 0.5, 0.5, 35.37860277150629, 3.7807340989748486, -2.7807340989748557, 36.085861528232165, 7.06569109504143,
-        -6.065691095041432, 1.9999573999981042, 0.40002940478525545
+        0.5, 0.5, 0.5, 20.37860277150629, 3.7807340989748486, -2.7807340989748557, 36.085861528232165, 7.06569109504143,
+        -6.065691095041432
     ],
                            dtype=torch.float)
 
     para_init = torch.tensor([
-        0.5, 0.5, 0.5, 35.37860277150629, 3.7820790965179647, -2.78207909651797, 36.085861528232165, 7.06569109504143,
-        -6.065691095041432, 1.9999573999981042, 0.40002940478525545
+        1.0, 2.0, 1.0, 20.37860277150629, 3.7820790965179647, -2.78207909651797, 36.085861528232165, 7.06569109504143,
+        -6.065691095041432
     ],
                              dtype=torch.float).to(gpu_or_cpu)
-
     para_init.requires_grad = True
+
+    radius_start = 1.9999573999981042
+    radius_end = 0.40002940478525545
 
     total_itr_steps = 100
 
@@ -243,15 +257,19 @@ if __name__ == '__main__':
     # img_ref_rgb = cv2.resize(img_ref_rgb, (int(raw_img_rgb.shape[1] / downscale), int(raw_img_rgb.shape[0] / downscale)))
     img_ref_gray = cv2.cvtColor(img_ref_rgb, cv2.COLOR_RGB2GRAY)
     ret, img_ref_thre = cv2.threshold(img_ref_gray.copy(), 245, 255, cv2.THRESH_BINARY_INV)
-    img_ref_thre_inv = cv2.bitwise_not(img_ref_thre)
 
-    img_ref_binary = np.where(img_ref_thre_inv == 255, 1, img_ref_thre_inv)
+    # img_ref_thre_inv = cv2.bitwise_not(img_ref_thre)
+    # img_ref_binary = np.where(img_ref_thre_inv == 255, 1, img_ref_thre_inv)
+    img_ref_binary = np.where(img_ref_thre == 255, 1, img_ref_thre)
+
+    gt_centline_3d = np.load(cc_specs_path)
 
     diff_model = DiffOptimizeModel(para_init=para_init[3:9],
                                    p_start=para_init[0:3],
-                                   radius_start=para_init[9],
-                                   radius_end=para_init[10],
+                                   radius_start=radius_start,
+                                   radius_end=radius_end,
                                    image_ref=img_ref_binary,
+                                   gt_centline_3d=gt_centline_3d[:, 0:3],
                                    cylinder_primitive_path=cylinder_primitive_path,
                                    gpu_or_cpu=gpu_or_cpu).to(gpu_or_cpu)
 

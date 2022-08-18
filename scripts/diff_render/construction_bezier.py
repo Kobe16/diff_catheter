@@ -165,8 +165,8 @@ class ConstructionBezier(nn.Module):
 
         for i in range(self.bezier_num_samples):
             surface_vec = self.bezier_radius * (
-                -torch.mul(self.bezier_normal[1, :], torch.unsqueeze(torch.cos(theta_list), dim=1)) +
-                torch.mul(self.bezier_binormal[1, :], torch.unsqueeze(torch.sin(theta_list), dim=1)))
+                -torch.mul(self.bezier_normal[i, :], torch.unsqueeze(torch.cos(theta_list), dim=1)) +
+                torch.mul(self.bezier_binormal[i, :], torch.unsqueeze(torch.sin(theta_list), dim=1)))
 
             # self.bezier_surface[i, :, :] = self.bezier_pos[i, :] + surface_vec
             self.bezier_surface[i, :, :] = bezier_pos[i, :] + surface_vec
