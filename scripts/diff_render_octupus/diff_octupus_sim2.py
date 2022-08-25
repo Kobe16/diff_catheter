@@ -231,21 +231,25 @@ if __name__ == '__main__':
     radius_gt = np.load(sim_case + 'radius_data.npy')
 
     dataset = DatasetProcess(centerline_gt, radius_gt)
+    (pt0, pt1, pt2, pt3) = dataset.get_initial_guess_bezier(frame_id)
 
-    pdb.set_trace()
+    # pdb.set_trace()
 
-    para_gt = torch.tensor([
-        0.5, 0.5, 0.5, 35.37860277150629, 3.7807340989748486, -2.7807340989748557, 36.085861528232165, 7.06569109504143,
-        -6.065691095041432, 1.9999573999981042, 0.40002940478525545
-    ],
-                           dtype=torch.float)
+    # para_gt = torch.tensor([
+    #     0.5, 0.5, 0.5, 35.37860277150629, 3.7807340989748486, -2.7807340989748557, 36.085861528232165, 7.06569109504143,
+    #     -6.065691095041432, 1.9999573999981042, 0.40002940478525545
+    # ],
+    #                        dtype=torch.float)
 
-    para_init = torch.tensor([
-        0.5, 0.5, 0.5, 35.37860277150629, 3.7820790965179647, -2.78207909651797, 36.085861528232165, 7.06569109504143,
-        -6.065691095041432, 1.9999573999981042, 0.40002940478525545
-    ],
-                             dtype=torch.float).to(gpu_or_cpu)
+    # para_init = torch.tensor([
+    #     0.5, 0.5, 0.5, 35.37860277150629, 3.7820790965179647, -2.78207909651797, 36.085861528232165, 7.06569109504143,
+    #     -6.065691095041432, 1.9999573999981042, 0.40002940478525545
+    # ],
+    #                          dtype=torch.float).to(gpu_or_cpu)
 
+    para_gt = torch.cat((torch.from_numpy(pt0), torch.from_numpy(pt1), torch.from_numpy(pt2), torch.from_numpy(pt3)), 0)
+    para_init = torch.cat((torch.from_numpy(pt0), torch.from_numpy(pt1), torch.from_numpy(pt2), torch.from_numpy(pt3)),
+                          0)
     para_init.requires_grad = True
 
     total_itr_steps = 100

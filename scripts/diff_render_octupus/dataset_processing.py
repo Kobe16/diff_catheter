@@ -29,7 +29,7 @@ class DatasetProcess():
         tangent_end = self.centerline_gt[frame_id, :, -2] - self.centerline_gt[frame_id, :, -1]
 
         # using the middle point as the curve length calculation
-        pt_middle = self.centerline_gt[frame_id, :, np.floor(self.centerline_gt.shape[2] / 2)]
+        pt_middle = self.centerline_gt[frame_id, :, int(self.centerline_gt.shape[2] / 2)]
         scale = np.linalg.norm(pt_middle - self.centerline_gt[frame_id, :, 0], ord=None, axis=0, keepdims=False)
 
         pt0 = self.centerline_gt[frame_id, :, 0]

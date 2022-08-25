@@ -95,7 +95,8 @@ class DiffOptimizeModel(nn.Module):
         ## define bezier radius
         self.build_bezier.getBezierRadius(self.radius_start, self.radius_end)
         ## define a bezier curve
-        self.build_bezier.getBezierCurve(self.para_init, self.p_start)
+        # self.build_bezier.getBezierCurve(self.para_init, self.p_start)
+        self.build_bezier.getCubicBezierCurve(self.para_init, self.p_start)
         ## get the bezier in TNB frame, in order to build a tube mesh
         # self.build_bezier.getBezierTNB(self.build_bezier.bezier_pos_cam, self.build_bezier.bezier_der_cam,
         #                                self.build_bezier.bezier_snd_der_cam)

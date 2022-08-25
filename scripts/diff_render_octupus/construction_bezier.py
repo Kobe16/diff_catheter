@@ -152,6 +152,64 @@ class ConstructionBezier(nn.Module):
 
         # pdb.set_trace()
 
+    def getCubicBezierCurve(self, para_gt, p_start=None):
+
+        # p_mid = para_gt[0:3]
+        # p_end = para_gt[3:6]
+        # p_c2 = 4 / 3 * p_mid - 1 / 3 * p_start
+        # p_c1 = 4 / 3 * p_mid - 1 / 3 * p_end
+
+        p_c1 = para_gt[3:6]
+        p_c2 = para_gt[6:9]
+        p_end = para_gt[9:12]
+
+        # self.control_pts = torch.vstack((p_start, c2, p_end, c1))
+
+        sample_list = torch.linspace(0, 1, self.bezier_num_samples).to(self.gpu_or_cpu)
+
+        # Get positions and normals from samples along bezier curve
+        self.bezier_pos = torch.zeros(self.bezier_num_samples, 3).to(self.gpu_or_cpu)
+        self.bezier_der = torch.zeros(self.bezier_num_samples, 3).to(self.gpu_or_cpu)
+        self.bezier_snd_der = torch.zeros(self.bezier_num_samples, 3).to(self.gpu_or_cpu)
+        for i, s in enumerate(sample_list):
+            self.bezier_pos[i, :] = (1 - s)**3 * p_start + 3 * s * (1 - s)**2 * \
+                p_c1 + 3 * (1 - s) * s**2 * p_c2 + s**3 * p_end
+            self.bezier_der[i, :] = -(1 - s)**2 * p_start + ((1 - s)**2 - 2 * s *
+                                                             (1 - s)) * p_c1 + (-s**2 + 2 *
+                                                                                (1 - s) * s) * p_c2 + s**2 * p_end
+            self.bezier_snd_der[i, :] = 6 * (1 - s) * (p_c2 - 2 * p_c1 + p_start) + 6 * s * (p_end - 2 * p_c2 + p_c1)
+
+        # Convert positions and normals to camera frame
+        pos_bezier_H = torch.cat((self.bezier_pos, torch.ones(self.bezier_num_samples, 1).to(self.gpu_or_cpu)), dim=1)
+
+        bezier_pos_cam_H = torch.transpose(torch.matmul(self.cam_RT_H, torch.transpose(pos_bezier_H, 0, 1)), 0, 1)
+        # self.bezier_pos_cam = bezier_pos_cam_H[1:, :-1]  ## without including the first point
+        self.bezier_pos_cam = bezier_pos_cam_H[:, :-1]
+
+        der_bezier_H = torch.cat((self.bezier_der, torch.zeros((self.bezier_num_samples, 1)).to(self.gpu_or_cpu)),
+                                 dim=1)
+        bezier_der_cam_H = torch.transpose(torch.matmul(self.cam_RT_H, torch.transpose(der_bezier_H[0:, :], 0, 1)), 0,
+                                           1)
+        self.bezier_der_cam = bezier_der_cam_H[:, :-1]
+
+        der_bezier_H = torch.cat((self.bezier_der, torch.zeros((self.bezier_num_samples, 1)).to(self.gpu_or_cpu)),
+                                 dim=1)
+        bezier_der_cam_H = torch.transpose(torch.matmul(self.cam_RT_H, torch.transpose(der_bezier_H[0:, :], 0, 1)), 0,
+                                           1)
+        self.bezier_der_cam = bezier_der_cam_H[:, :-1]
+
+        der_snd_bezier_H = torch.cat((self.bezier_snd_der, torch.zeros(
+            (self.bezier_num_samples, 1)).to(self.gpu_or_cpu)),
+                                     dim=1)
+        bezier_snd_der_cam_H = torch.transpose(
+            torch.matmul(self.cam_RT_H, torch.transpose(der_snd_bezier_H[0:, :], 0, 1)), 0, 1)
+        self.bezier_snd_der_cam = bezier_snd_der_cam_H[:, :-1]
+
+        ## get project image centerline
+        self.bezier_proj_img = self.getProjPointCam(self.bezier_pos_cam[0:], self.cam_K)
+
+        # pdb.set_trace()
+
     ## get the ground truth skeleton projected in the image
     def getGroundTruthCenterlineCam(self, gt_centline_3d):
         self.gt_centline_3d = torch.from_numpy(gt_centline_3d.astype(np.float32)).to(self.gpu_or_cpu)
