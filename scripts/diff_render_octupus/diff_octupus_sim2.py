@@ -247,9 +247,8 @@ if __name__ == '__main__':
     # ],
     #                          dtype=torch.float).to(gpu_or_cpu)
 
-    para_gt = torch.cat((torch.from_numpy(pt0), torch.from_numpy(pt1), torch.from_numpy(pt2), torch.from_numpy(pt3)), 0)
-    para_init = torch.cat((torch.from_numpy(pt0), torch.from_numpy(pt1), torch.from_numpy(pt2), torch.from_numpy(pt3)),
-                          0)
+    para_gt = torch.cat((torch.from_numpy(pt0), torch.from_numpy(pt1), torch.from_numpy(pt2), torch.from_numpy(pt3)))
+    para_init = torch.cat((torch.from_numpy(pt0), torch.from_numpy(pt1), torch.from_numpy(pt2), torch.from_numpy(pt3)))
     para_init.requires_grad = True
 
     total_itr_steps = 100
