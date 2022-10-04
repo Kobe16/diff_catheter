@@ -64,11 +64,23 @@ class DoDiffOptimization(nn.Module):
         self.img_raw_rgb = img_raw_rgb
         self.data_frame_id = data_frame_id
 
-        self.save_data_path = '/home/fei/icra2023_diff_catheter/scripts/diff_render_octupus/torch3d_rendered_imgs/real_dataset_render/loss_mask_4k/version_video/frame_' + str(self.data_frame_id)
+        self.save_data_path = '/home/fei/icra2023_diff_catheter/scripts/diff_render_octupus/torch3d_rendered_imgs/real_dataset_render/loss_mask_4k/version_video_selected/frame_' + str(
+            self.data_frame_id)
+        # self.save_data_path = '/home/fei/icra2023_diff_catheter/scripts/diff_render_octupus/torch3d_rendered_imgs/real_dataset_render/loss_mask_end/version_video_selected/frame_' + str(self.data_frame_id)
+        # self.save_data_path = '/home/fei/icra2023_diff_catheter/scripts/diff_render_octupus/torch3d_rendered_imgs/real_dataset_render/loss_mask_only/version_video_selected/frame_' + str(self.data_frame_id)
         # self.save_data_path = '/home/fei/icra2023_diff_catheter/scripts/diff_render_octupus/torch3d_rendered_imgs/real_dataset_render/loss_mask_4k/frame_' + str(self.data_frame_id)
         # self.save_data_path = '/home/fei/icra2023_diff_catheter/scripts/diff_render_octupus/torch3d_rendered_imgs/real_dataset_render/loss_mask_end/frame_' + str(self.data_frame_id)
         # self.save_data_path = '/home/fei/icra2023_diff_catheter/scripts/diff_render_octupus/torch3d_rendered_imgs/real_dataset_render/loss_mask_only/frame_' + str(self.data_frame_id)
         Path(self.save_data_path).mkdir(parents=True, exist_ok=True)
+
+    def axisEqual3D(self, ax):
+        extents = np.array([getattr(ax, 'get_{}lim'.format(dim))() for dim in 'xyz'])
+        sz = extents[:, 1] - extents[:, 0]
+        centers = np.mean(extents, axis=1)
+        maxsize = max(abs(sz))
+        r = maxsize / 2
+        for ctr, dim in zip(centers, 'xyz'):
+            getattr(ax, 'set_{}lim'.format(dim))(ctr - r, ctr + r)
 
     def savingStepFigures(self, save_img_path, save_converge_img_path):
 
@@ -110,6 +122,114 @@ class DoDiffOptimization(nn.Module):
         single_channel_render = np.where(single_channel_render >= 0.1, 255, single_channel_render)
         single_channel_render = np.where(single_channel_render < 0.1, 0, single_channel_render)
         cv2.imwrite(save_converge_img_path, single_channel_render)
+
+        # pdb.set_trace()
+
+    def savingVideoStepFigures(self, save_img_path, save_3d_surface_path, save_render_step_img_path, loss_history_step, bezier_surface_vertices):
+
+        fig, axes = plt.subplots(1, 3, figsize=(10, 3), gridspec_kw={'width_ratios': [1.0, 1.0, 1.2], 'height_ratios': [1]})
+        # fig, axes = plt.subplots(1, 3, figsize=(16, 3))
+        colormap = mpl.cm.gray
+        colormap_norm = mpl.colors.Normalize(vmin=0, vmax=1)
+        ax = axes.ravel()
+        ax[0].imshow(cv2.cvtColor(self.img_raw_rgb, cv2.COLOR_BGR2RGB), aspect="auto")
+        ### =============================
+        # # plot four points
+        id_keypoint_skeleton = self.diff_model.ref_skeleton_selected_id_list
+        ax[0].plot(self.diff_model.ref_skeleton[id_keypoint_skeleton, 0], self.diff_model.ref_skeleton[id_keypoint_skeleton, 1], linestyle='-', marker='o', color='#E94560', markersize=6)
+        # plot end-effector point
+        ax[0].plot(self.diff_model.ref_skeleton[-1, 0], self.diff_model.ref_skeleton[-1, 1], marker='o', color='#FFDE00', markersize=6)
+        ### =============================
+        ax[0].set_title('Reference Image')
+        ax[0].axis('off')
+
+        ax[1].imshow(self.diff_model.img_render_diffable, cmap=colormap, norm=colormap_norm, aspect="auto")
+        ### =============================
+        id_keypoint_centerline = self.diff_model.centerline_selected_id_list
+        ax[1].plot(self.diff_model.bezier_proj_img_npy[id_keypoint_centerline, 0],
+                   self.diff_model.bezier_proj_img_npy[id_keypoint_centerline, 1],
+                   linestyle='-',
+                   marker='o',
+                   color='#E94560',
+                   markersize=6,
+                   linewidth=1)
+        ax[1].plot(self.diff_model.bezier_proj_img_npy[-1, 0], self.diff_model.bezier_proj_img_npy[-1, 1], marker='o', color='#FFDE00', markersize=6)
+        ### =============================
+        ax[1].set_title('Render Steps')
+        ax[1].axis('off')
+
+        # ax[2].remove()
+        # ax[2] = fig.add_subplot(1, 4, 3, projection='3d')
+        # ax[2].scatter(bezier_surface_vertices[:, 0], bezier_surface_vertices[:, 1], bezier_surface_vertices[:, 2], marker='o', s=0.1, color='#A7D2CB')
+        # ax[2].view_init(azim=-90, elev=-70)
+        # self.axisEqual3D(ax[2])
+        # ax[2].grid(True)
+        # ax[2].set_title('3D Surface Vertices')
+        # ax[2].set_xticklabels([])
+        # ax[2].set_yticklabels([])
+        # ax[2].set_zticklabels([])
+
+        ax[2].plot(loss_history_step, marker='o', linestyle='-', linewidth=0.5, markersize=1)
+        ax[2].set_title('Loss Steps')
+        ax[2].set_xlim((0, 200))
+        ax[2].set_ylim((0, loss_history_step[0] + loss_history_step[0] * 0.05))
+
+        ##### =========================================================
+        ##### =========================================================
+        color_red = (96, 69, 233)
+        color_yellow = (0, 222, 255)
+        color_green = (97, 131, 61)
+        single_channel_render = self.diff_model.img_render_diffable.copy()
+        single_channel_render = np.where(single_channel_render >= 0.1, 255, single_channel_render)
+        single_channel_render = np.where(single_channel_render < 0.1, 0, single_channel_render)
+        render_step_image = np.stack((single_channel_render, single_channel_render, single_channel_render), axis=2)
+        ### =============================
+        for i in range(len(id_keypoint_centerline) - 1):
+            id = id_keypoint_centerline[i]
+            id_next = id_keypoint_centerline[i + 1]
+            p1 = (int(self.diff_model.bezier_proj_img_npy[id, 0]), int(self.diff_model.bezier_proj_img_npy[id, 1]))
+            p2 = (int(self.diff_model.bezier_proj_img_npy[id_next, 0]), int(self.diff_model.bezier_proj_img_npy[id_next, 1]))
+            cv2.line(render_step_image, p1, p2, color_green, 1)
+            cv2.circle(render_step_image, p1, radius=6, color=color_red, thickness=-1)
+        ## draw endpoint
+        cv2.circle(render_step_image, (int(self.diff_model.bezier_proj_img_npy[-1, 0]), int(self.diff_model.bezier_proj_img_npy[-1, 1])), radius=6, color=color_yellow, thickness=-1)
+        ### =============================
+        cv2.imwrite(save_render_step_img_path, render_step_image)
+        ##### =========================================================
+        ##### =========================================================
+
+        # plt.tight_layout()
+        fig.set_tight_layout(True)
+        # plt.show()
+        fig.savefig(save_img_path, dpi=300)
+        plt.close(fig)
+
+        ##### =========================================================
+        ##### =========================================================
+        fig = plt.figure(figsize=(6, 6))
+        ax = plt.axes(projection='3d')
+
+        ax.scatter(bezier_surface_vertices[:, 0], bezier_surface_vertices[:, 1], bezier_surface_vertices[:, 2], marker='o', s=0.1, color='#874C62')  ## frame_93
+        ax.view_init(azim=-90, elev=-70)
+        # ax.scatter(bezier_surface_vertices[:, 2], bezier_surface_vertices[:, 1], bezier_surface_vertices[:, 0], marker='o', s=0.1, color='#874C62')  ## frame_105
+        # ax.view_init(azim=90, elev=100)
+        self.axisEqual3D(ax)
+        ax.grid(True)
+        ax.set_title('3D Surface Vertices')
+        ax.set_xticklabels([])
+        ax.set_yticklabels([])
+        ax.set_zticklabels([])
+        plt.tight_layout()
+        # plt.show()
+        fig.savefig(save_3d_surface_path, dpi=300)
+        plt.close(fig)
+        ##### =========================================================
+        ##### =========================================================
+
+        print('===============================================')
+        print(self.diff_model.bezier_proj_img_npy[-1, :])
+        print(self.diff_model.ref_skeleton[-1, :])
+        print('===============================================')
 
         # pdb.set_trace()
 
@@ -303,19 +423,19 @@ class DoDiffOptimization(nn.Module):
                 print("Curr loss : ", self.loss)
                 print("---------------- FINISH ", self.id_iteration, " ^_^ ITER ---------------- \n")
 
-            if self.id_iteration >= self.total_itr_steps:
-                save_final_step_img_path = self.save_data_path + '/final_frame_' + str(self.data_frame_id) + '.png'
-                save_render_final_image_path = self.save_data_path + '/render_final_frame_' + str(self.data_frame_id) + '.png'
-                self.savingFinalStepFigures(save_final_step_img_path, save_render_final_image_path)
+            # if self.id_iteration >= self.total_itr_steps:
+            #     save_final_step_img_path = self.save_data_path + '/final_frame_' + str(self.data_frame_id) + '.png'
+            #     save_render_final_image_path = self.save_data_path + '/render_final_frame_' + str(self.data_frame_id) + '.png'
+            #     self.savingFinalStepFigures(save_final_step_img_path, save_render_final_image_path)
 
-                save_render_2d_skeleton_path = self.save_data_path + '/render_2d_skeleton_frame_' + str(self.data_frame_id) + '.npy'
-                np.save(save_render_2d_skeleton_path, self.diff_model.bezier_proj_img_npy)
+            #     save_render_2d_skeleton_path = self.save_data_path + '/render_2d_skeleton_frame_' + str(self.data_frame_id) + '.npy'
+            #     np.save(save_render_2d_skeleton_path, self.diff_model.bezier_proj_img_npy)
 
-                save_render_3d_centerline_path = self.save_data_path + '/render_3d_centerline_frame_' + str(self.data_frame_id) + '.npy'
-                np.save(save_render_3d_centerline_path, self.diff_model.bezier_pos_npy)
+            #     save_render_3d_centerline_path = self.save_data_path + '/render_3d_centerline_frame_' + str(self.data_frame_id) + '.npy'
+            #     np.save(save_render_3d_centerline_path, self.diff_model.bezier_pos_npy)
 
-                bezier_surface_vertices_path = self.save_data_path + '/render_3d_bezier_surface_vertices_frame_' + str(self.data_frame_id) + '.npy'
-                np.save(bezier_surface_vertices_path, self.diff_model.bezier_surface_vertices_npy)
+            #     bezier_surface_vertices_path = self.save_data_path + '/render_3d_bezier_surface_vertices_frame_' + str(self.data_frame_id) + '.npy'
+            #     np.save(bezier_surface_vertices_path, self.diff_model.bezier_surface_vertices_npy)
 
             if self.id_iteration == 1:
                 self.img_render_init = self.diff_model.img_render_diffable.copy()
@@ -329,23 +449,29 @@ class DoDiffOptimization(nn.Module):
                 save_ref_3d_centerline_path = self.save_data_path + '/ref_3d_centerline_frame_' + str(self.data_frame_id) + '.npy'
                 np.save(save_ref_3d_centerline_path, self.diff_model.gt_centline_3d)
 
-            ## save all steps
-            save_img_steps_path = self.save_data_path + '/step_' + str(self.id_iteration) + '.png'
-            save_converge_img_path = self.save_data_path + '/step_converge_' + str(self.id_iteration) + '.png'
-
-            self.savingStepFigures(save_img_steps_path, save_converge_img_path)
-
             self.saved_loss_history = np.hstack((self.saved_loss_history, self.loss.cpu().detach().numpy()))
             self.saved_para_history = np.vstack((self.saved_para_history, self.para_init.cpu().detach().numpy()))
 
-            # last_loss = torch.clone(self.loss)
             loss_history.append(self.loss.cpu().detach().numpy())
             learn_rate_history.append(learn_rate)
 
-            # saved_value = np.hstack((last_loss.cpu().detach().numpy(), self.para_init.cpu().detach().numpy()))
-            # save_mesh_path = '/home/fei/icra2023_diff_catheter/scripts/diff_render/torch3d_rendered_imgs/meshes' + 'mesh_' + str(
-            #     self.id_iteration) + '.obj'  # save the figure to file
-            # self.diff_model.saveUpdatedMesh(save_mesh_path)
+            ## save each step : ref + loss + render fig
+            ## save all steps
+            save_video_steps_path = self.save_data_path + '/video_step_' + str(self.id_iteration) + '.png'
+            save_3d_surface_path = self.save_data_path + '/3d_surface_step_' + str(self.id_iteration) + '.png'
+            save_render_step_img_path = self.save_data_path + '/render_step_' + str(self.id_iteration) + '.png'
+            self.savingVideoStepFigures(save_video_steps_path, save_3d_surface_path, save_render_step_img_path, loss_history, self.diff_model.bezier_surface_vertices_npy)
+
+            ## save each step : surface vertices
+            save_render_2d_skeleton_path = self.save_data_path + '/render_2d_skeleton_step_' + str(self.id_iteration) + '.npy'
+            np.save(save_render_2d_skeleton_path, self.diff_model.bezier_proj_img_npy)
+
+            save_render_3d_centerline_path = self.save_data_path + '/render_3d_centerline_step_' + str(self.id_iteration) + '.npy'
+            np.save(save_render_3d_centerline_path, self.diff_model.bezier_pos_npy)
+
+            ## save each step : surface vertices
+            bezier_surface_vertices_path = self.save_data_path + '/render_3d_bezier_surface_vertices_step_' + str(self.id_iteration) + '.npy'
+            np.save(bezier_surface_vertices_path, self.diff_model.bezier_surface_vertices_npy)
 
         print("Final --->", self.para_init.cpu().detach())
         print("GT    --->", self.para_gt)
@@ -380,7 +506,7 @@ class DoDiffOptimization(nn.Module):
 
 if __name__ == '__main__':
 
-    for i in range(0, 2):
+    for i in range(0, 1):
 
         selected_frame_id = i
 
@@ -470,9 +596,9 @@ if __name__ == '__main__':
         # init_random = torch.tensor([8.0, 4.0, 0.0, 18.0, 5.0, 0.0, 0.0], dtype=torch.float).to(gpu_or_cpu)
         # frame 93 - 94 : mask only
         # init_random = torch.tensor([8.0, 4.0, 0.0, 18.0, 5.0, 0.0, 0.0], dtype=torch.float).to(gpu_or_cpu)  ## which is good
-        # init_random = torch.tensor([1.0, 4.0, 0.0, 5.0, 0.0, 0.0, 0.0], dtype=torch.float).to(gpu_or_cpu)  ## not good
+        init_random = torch.tensor([1.0, 4.0, 0.0, 5.0, 0.0, 0.0, 0.0], dtype=torch.float).to(gpu_or_cpu)  ## not good (but good for compare)
         # frame 93 - 94 : mask + 4 key
-        init_random = torch.tensor([-2.0, 8.0, -5.0, 5.0, -6.0, -35.0, 0.0], dtype=torch.float).to(gpu_or_cpu)  ## good
+        # init_random = torch.tensor([-2.0, 8.0, -5.0, 5.0, -6.0, -35.0, 0.0], dtype=torch.float).to(gpu_or_cpu)  ## good
 
         # 5.0, 6.0, -15.0, 10.0, 4.0, -40.0, 0.0
 
@@ -488,10 +614,9 @@ if __name__ == '__main__':
         # init_random = torch.tensor([10.0, 5.0, 0.0, 40.0, 0.0, -10.0, 0.0], dtype=torch.float).to(gpu_or_cpu)  ## perfect good
         # 105 : mask + 4 keypoints
         # init_random = torch.tensor([24.70334249, -2.16067774, 62.45331193, 29.82857465, 0.40311252, 34.62632375, 31.63905933], dtype=torch.float).to(gpu_or_cpu)  ## grount truth
-
         ## 105 : good initial for all
-        # init_random = torch.tensor([5.0, 6.0, -15.0, 10.0, 4.0, -40.0, 0.0], dtype=torch.float).to(gpu_or_cpu)  ## good inital
-        # init_random = torch.tensor([3.0, 6.0, -15.0, 6.0, 4.0, -40.0, 0.0], dtype=torch.float).to(gpu_or_cpu)  ## good for compare
+        # init_random = torch.tensor([5.0, 6.0, -15.0, 10.0, 4.0, -40.0, 0.0], dtype=torch.float).to(gpu_or_cpu)  ## good
+        # init_random = torch.tensor([3.0, 6.0, -15.0, 6.0, 4.0, -40.0, 0.0], dtype=torch.float).to(gpu_or_cpu)  ## (good for compare)
 
         # pdb.set_trace()
 
@@ -503,7 +628,7 @@ if __name__ == '__main__':
 
         # from frame 117 : mask only
         # init_random = torch.tensor([8.0, 14.0, 0.0, 18.0, 5.0, 0.0, 0.0], dtype=torch.float).to(gpu_or_cpu)  ## perfect good
-        # init_random = torch.tensor([8.0, 10.0, 0.0, 20.0, 0.0, 0.0, 0.0], dtype=torch.float).to(gpu_or_cpu)  ## not good
+        # init_random = torch.tensor([8.0, 10.0, 0.0, 20.0, 0.0, 0.0, 0.0], dtype=torch.float).to(gpu_or_cpu)  ## not good (but good for compare)
 
         # # from frame 114--121 : mask only
         # init_random = torch.tensor([-2.0, 10.0, 0.0, 5.0, 0.0, 0.0, 0.0], dtype=torch.float).to(gpu_or_cpu)
@@ -518,10 +643,10 @@ if __name__ == '__main__':
         # init_random = torch.tensor([-4.0, 10.0, 0.0, -15.0, 0.0, 0.0, 0.0], dtype=torch.float).to(gpu_or_cpu) ## good for all
 
         ## 136 : mask only
-        # init_random = torch.tensor([-4.0, 10.0, 0.0, -15.0, 0.0, 0.0, 0.0], dtype=torch.float).to(gpu_or_cpu)  ## good
-        # init_random = torch.tensor([2.0, 5.0, 0.0, -5.0, 0.0, 0.0, 0.0], dtype=torch.float).to(gpu_or_cpu)  ## not good
+        # init_random = torch.tensor([-4.0, 10.0, 0.0, -15.0, 0.0, 0.0, 0.0], dtype=torch.float).to(gpu_or_cpu)  ## good for all
+        # init_random = torch.tensor([2.0, 5.0, 0.0, -5.0, 0.0, 0.0, 0.0], dtype=torch.float).to(gpu_or_cpu)  ## not good (but good for compare)
 
-        ## 136 : mask only
+        ## 136 : mask + 4 keypoints
         # init_random = torch.tensor([5.0, 2.0, 0.0, 2.0, 0.0, 0.0, 0.0], dtype=torch.float).to(gpu_or_cpu)  ## good
 
         # para_init = para_init

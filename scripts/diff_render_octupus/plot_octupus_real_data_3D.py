@@ -57,7 +57,7 @@ ax = plt.axes(projection="3d")
 
 for i in range(4):
 
-    mask_4k_loss_path = '/home/fei/diff_catheter/scripts/diff_render_octupus/torch3d_rendered_imgs/real_dataset_render/loss_mask_4k/'
+    mask_4k_loss_path = '/home/fei/icra2023_diff_catheter/scripts/diff_render_octupus/torch3d_rendered_imgs/real_dataset_render/loss_mask_4k/version_paper/'
 
     # render_3d_centerline_path = mask_4k_loss_path + 'frame_' + str(frame_id[i]) + '/render_3d_centerline_frame_' + str(frame_id[i]) + '.npy'
     # render_2d_skeleton_path = mask_4k_loss_path + 'frame_' + str(frame_id[i]) + '/render_2d_skeleton_frame_' + str(frame_id[i]) + '.npy'
@@ -84,7 +84,7 @@ frame_id = (93, 94, 95, 97, 98, 104, 105, 108, 109, 110, 111, 112, \
 traj_pts = []
 for i in range(len(frame_id)):
 
-    mask_4k_loss_path = '/home/fei/diff_catheter/scripts/diff_render_octupus/torch3d_rendered_imgs/real_dataset_render/loss_mask_4k/'
+    mask_4k_loss_path = '/home/fei/icra2023_diff_catheter/scripts/diff_render_octupus/torch3d_rendered_imgs/real_dataset_render/loss_mask_4k/version_paper/'
 
     render_3d_centerline_path = mask_4k_loss_path + 'frame_' + str(frame_id[i]) + '/render_3d_centerline_frame_' + str(frame_id[i]) + '.npy'
     # render_2d_skeleton_path = mask_4k_loss_path + 'frame_' + str(frame_id[i]) + '/render_2d_skeleton_frame_' + str(frame_id[i]) + '.npy'
@@ -103,11 +103,14 @@ ax.view_init(azim=0, elev=23)
 axisEqual3D(ax)
 
 ax.grid(True)
-ax.set_xticklabels([])
-ax.set_yticklabels([])
-ax.set_zticklabels([])
+ax.set_xlabel('x')
+ax.set_ylabel('y')
+ax.set_zlabel('z')
+# ax.set_xticklabels([])
+# ax.set_yticklabels([])
+# ax.set_zticklabels([])
 
 plt.tight_layout()
-fig.savefig('/home/fei/diff_catheter/scripts/diff_render_octupus/torch3d_rendered_imgs/real_dataset_render/traj_3d_render_mask_4k.png', dpi=300)
+# fig.savefig('/home/fei/diff_catheter/scripts/diff_render_octupus/torch3d_rendered_imgs/real_dataset_render/traj_3d_render_mask_4k.png', dpi=300)
 
 plt.show()
