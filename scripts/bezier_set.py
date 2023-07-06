@@ -72,15 +72,15 @@ class BezierSet:
             ])
 
         else:
-            # subprocess.run([
-            #     './blender', '--background', '-P', path_settings.bezier_render_script, '--', '--specs_path',
-            #     self.specs_path, '--save_path', img_save_path, '--viewpoint_mode',
-            #     str(viewpoint_mode), '--target_specs_path', '', '--transparent_mode',
-            #     str(transparent_mode)
-            # ])   # run in background
             subprocess.run([
-                './blender', '-P', path_settings.bezier_render_script, '--', '--specs_path', self.specs_path,
-                '--save_path', img_save_path, '--viewpoint_mode',
+                './blender', '--background', '-P', path_settings.bezier_render_script, '--', '--specs_path',
+                self.specs_path, '--save_path', img_save_path, '--viewpoint_mode',
                 str(viewpoint_mode), '--target_specs_path', '', '--transparent_mode',
                 str(transparent_mode)
-            ])
+            ])   # run in background
+            # subprocess.run([
+            #     './blender', '-P', path_settings.bezier_render_script, '--', '--specs_path', self.specs_path,
+            #     '--save_path', img_save_path, '--viewpoint_mode',
+            #     str(viewpoint_mode), '--target_specs_path', '', '--transparent_mode',
+            #     str(transparent_mode)
+            # ])

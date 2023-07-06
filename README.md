@@ -8,10 +8,16 @@
 - numpy         (pip)
 - shapely       (pip)
 
+- scikit-image  (pip)
+
 ## Routine of Operation
 1. Modify scripts/path_settings.py
-2. Setup the experiment executors and run
-3. Setup the experiment interpretors in the same way as the experiment executors and run
+2. Add directory /target_parameters under /data
+3. Setup the experiment executors and run
+4. Setup the experiment interpretors in the same way as the experiment executors and run
+
+If you want Blender to render curves in the background without interrupting script execution, 
+add the '--background' tag to subprocess.run([]) inside scripts/bezier_set.py
 
 ## Full Path Tree
 ```bash

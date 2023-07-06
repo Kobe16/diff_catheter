@@ -23,37 +23,61 @@
 # results_dir = '/home/inffzy/nutstore_files/arclab_research/ARCLab-CCCatheter/results'
 
 ## For Inffzy Macbook Pro
-#specs_dir = '/Users/inffzy/Desktop/ARCLab/ARCLab-CCCatheter/data/bezier_specs'
-#image_save_dir = '/Users/inffzy/Desktop/ARCLab/ARCLab-CCCatheter/data/rendered_images'
-#video_save_dir = '/Users/inffzy/Desktop/ARCLab/ARCLab-CCCatheter/data/rendered_videos'
-#contour_images_dir = '/Users/inffzy/Desktop/ARCLab/ARCLab-CCCatheter/data/contour_images'
-#
-#blender_dir = '/Applications/Blender.app/Contents/MacOS/'
-#bezier_render_script = '/Users/inffzy/Desktop/ARCLab/ARCLab-CCCatheter/blender_files/render_bezier_blender.py'
-#
-#target_parameters_dir = '/Users/inffzy/Desktop/ARCLab/ARCLab-CCCatheter/data/target_parameters'
-#results_dir = '/Users/inffzy/Desktop/ARCLab/ARCLab-CCCatheter/results'
+# specs_dir = '/Users/inffzy/Desktop/ARCLab/ARCLab-CCCatheter/data/bezier_specs'
+# image_save_dir = '/Users/inffzy/Desktop/ARCLab/ARCLab-CCCatheter/data/rendered_images'
+# video_save_dir = '/Users/inffzy/Desktop/ARCLab/ARCLab-CCCatheter/data/rendered_videos'
+# contour_images_dir = '/Users/inffzy/Desktop/ARCLab/ARCLab-CCCatheter/data/contour_images'
+
+# blender_dir = '/Applications/Blender.app/Contents/MacOS/'
+# bezier_render_script = '/Users/inffzy/Desktop/ARCLab/ARCLab-CCCatheter/blender_files/render_bezier_blender.py'
+
+# target_parameters_dir = '/Users/inffzy/Desktop/ARCLab/ARCLab-CCCatheter/data/target_parameters'
+# results_dir = '/Users/inffzy/Desktop/ARCLab/ARCLab-CCCatheter/results'
 
 ## For Fei Lab Ubuntu
-specs_dir = '/home/inffzy/nutstore_files/arclab_research/ARCLab-CCCatheter/data/bezier_specs'
-image_save_dir = '/home/inffzy/nutstore_files/arclab_research/ARCLab-CCCatheter/data/rendered_images'
-video_save_dir = '/home/inffzy/nutstore_files/arclab_research/ARCLab-CCCatheter/data/rendered_videos'
-contour_images_dir = '/home/inffzy/nutstore_files/arclab_research/ARCLab-CCCatheter/data/contour_images'
+# specs_dir = '/home/inffzy/nutstore_files/arclab_research/ARCLab-CCCatheter/data/bezier_specs'
+# image_save_dir = '/home/inffzy/nutstore_files/arclab_research/ARCLab-CCCatheter/data/rendered_images'
+# video_save_dir = '/home/inffzy/nutstore_files/arclab_research/ARCLab-CCCatheter/data/rendered_videos'
+# contour_images_dir = '/home/inffzy/nutstore_files/arclab_research/ARCLab-CCCatheter/data/contour_images'
 
-blender_dir = '/home/fei/Program/blender-3.2.0-linux-x64'
-bezier_render_script = '/home/fei/ARCLab-CCCatheter/blender_files/render_bezier_blender.py'
+# blender_dir = '/home/fei/Program/blender-3.2.0-linux-x64'
+# bezier_render_script = '/home/fei/ARCLab-CCCatheter/blender_files/render_bezier_blender.py'
 
-target_parameters_dir = '/home/inffzy/nutstore_files/arclab_research/ARCLab-CCCatheter/data/target_parameters'
-results_dir = '/home/inffzy/nutstore_files/arclab_research/ARCLab-CCCatheter/results'
+# target_parameters_dir = '/home/inffzy/nutstore_files/arclab_research/ARCLab-CCCatheter/data/target_parameters'
+# results_dir = '/home/inffzy/nutstore_files/arclab_research/ARCLab-CCCatheter/results'
 
 ## For Fei Lab Ubuntu
-specs_dir = '/home/inffzy/nutstore_files/arclab_research/ARCLab-CCCatheter/data/bezier_specs'
-image_save_dir = '/home/inffzy/nutstore_files/arclab_research/ARCLab-CCCatheter/data/rendered_images'
-video_save_dir = '/home/inffzy/nutstore_files/arclab_research/ARCLab-CCCatheter/data/rendered_videos'
-contour_images_dir = '/home/inffzy/nutstore_files/arclab_research/ARCLab-CCCatheter/data/contour_images'
+# specs_dir = '/home/inffzy/nutstore_files/arclab_research/ARCLab-CCCatheter/data/bezier_specs'
+# image_save_dir = '/home/inffzy/nutstore_files/arclab_research/ARCLab-CCCatheter/data/rendered_images'
+# video_save_dir = '/home/inffzy/nutstore_files/arclab_research/ARCLab-CCCatheter/data/rendered_videos'
+# contour_images_dir = '/home/inffzy/nutstore_files/arclab_research/ARCLab-CCCatheter/data/contour_images'
 
-blender_dir = '/home/fei/Program/blender-3.2.0-linux-x64'
-bezier_render_script = '/home/fei/diff_catheter/blender_files/render_bezier_blender.py'
+# blender_dir = '/home/fei/Program/blender-3.2.0-linux-x64'
+# bezier_render_script = '/home/fei/diff_catheter/blender_files/render_bezier_blender.py'
 
-target_parameters_dir = '/home/inffzy/nutstore_files/arclab_research/ARCLab-CCCatheter/data/target_parameters'
-results_dir = '/home/inffzy/nutstore_files/arclab_research/ARCLab-CCCatheter/results'
+# target_parameters_dir = '/home/inffzy/nutstore_files/arclab_research/ARCLab-CCCatheter/data/target_parameters'
+# results_dir = '/home/inffzy/nutstore_files/arclab_research/ARCLab-CCCatheter/results'
+
+## For Kobe Macbook Air (only blender_dir and bezier_render_script paths changed)
+# specs_dir = '/home/inffzy/nutstore_files/arclab_research/ARCLab-CCCatheter/data/bezier_specs'
+# image_save_dir = '/home/inffzy/nutstore_files/arclab_research/ARCLab-CCCatheter/data/rendered_images'
+# video_save_dir = '/home/inffzy/nutstore_files/arclab_research/ARCLab-CCCatheter/data/rendered_videos'
+# contour_images_dir = '/home/inffzy/nutstore_files/arclab_research/ARCLab-CCCatheter/data/contour_images'
+
+# blender_dir = '/Applications/Blender.app/Contents/MacOS/'
+# bezier_render_script = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/blender_files/render_bezier_blender.py'
+
+# target_parameters_dir = '/home/inffzy/nutstore_files/arclab_research/ARCLab-CCCatheter/data/target_parameters'
+# results_dir = '/home/inffzy/nutstore_files/arclab_research/ARCLab-CCCatheter/results'
+
+## For Kobe Macbook Air (all directory paths changed)
+specs_dir = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/data/bezier_specs'
+image_save_dir = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/data/rendered_images'
+video_save_dir = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/data/rendered_videos'
+contour_images_dir = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/data/contour_images'
+
+blender_dir = '/Applications/Blender.app/Contents/MacOS/'
+bezier_render_script = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/blender_files/render_bezier_blender.py'
+
+target_parameters_dir = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/data/target_parameters'
+results_dir = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/results'
