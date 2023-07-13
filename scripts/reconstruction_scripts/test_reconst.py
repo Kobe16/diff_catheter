@@ -198,32 +198,78 @@ class reconstructCurve():
 
         return True
 
-    def getFrenetFrame(der_vector, double_der_vector): 
-        normalized_a = F.normalize(der_vector, p=2, dim=2)
-        normalized_b = F.normalize(normalized_a + double_der_vector, p=2)
-        rotational_axis_vector = F.normalize(torch.cross(normalized_a, normalized_b))
-        normal_vector = F.normalize(torch.cross(rotational_axis_vector, normalized_a))
+    def getFrenetFrame(self, der_vector, double_der_vector): 
+        ''' Helper function for getBezierCurveCylinder.
+        All vectors in this method have shape of (1) and should be normalized 
+        using L2 normalization
+        '''
+
+        normalized_a = F.normalize(der_vector, p=2.0, dim=0)
+        # print("\nNormalized_a: " + str(normalized_a))
+        normalized_b = F.normalize(normalized_a + double_der_vector, p=2.0, dim=0)
+        # print("\nNormalized_b: " + str(normalized_b))
+        rotational_axis_vector = F.normalize(torch.cross(normalized_a, normalized_b), p=2.0, dim=0)
+        # print("\nrotational_axis_vector: " + str(rotational_axis_vector))
+        normal_vector = F.normalize(torch.cross(rotational_axis_vector, normalized_a, dim=0), p=2.0, dim=0)
+        # print("\nnormal_vector: " + str(normal_vector))
 
         return normal_vector
 
+    def getRotatedVector(self, rot_angle, rot_axis_vector, rot_vector): 
+        '''Helper function for getBezierCurveCylinder.
+        Rotates a vector around an axis by a certain angle in 3D space. 
+
+        rot_angle -- angle by which to rotate by. MUST BE RADIANS
+        rot_axis_vector -- axis to rotate around. Will be the 3D tangent vector at the 
+                           point on the Bezier curve. MUST BE A UNIT VECTOR
+        rot_vector -- vector to rotate. Will be the 3D normal vector at the point on
+                      the Bezier curve
+        '''
+
+        ux, uy, uz = rot_axis_vector
+        # print("ux: " + str(ux))
+        # print("uy: " + str(uy))
+        # print("uz: " + str(uz))
+        # print("Should be 1: " + str(ux**2 + uy**2 + uz**2))
+        cos_theta = math.cos(rot_angle)
+        sin_theta = math.sin(rot_angle)
+        one_minus_cos_theta = 1 - cos_theta
+
+        R = torch.tensor([
+            [cos_theta + ux**2 * one_minus_cos_theta, ux * uy * one_minus_cos_theta - uz * sin_theta, ux * uz * one_minus_cos_theta + uy * sin_theta],
+            [uy * ux * one_minus_cos_theta + uz * sin_theta, cos_theta + uy**2 * one_minus_cos_theta, uy * uz * one_minus_cos_theta - ux * sin_theta],
+            [uz * ux * one_minus_cos_theta - uy * sin_theta, uz * uy * one_minus_cos_theta + ux * sin_theta, cos_theta + uz**2 * one_minus_cos_theta]
+        ])
+        # R = torch.tensor([[1., 0., 0.], 
+        #                   [0., 1., 0.], 
+        #                   [0., 0., 1.]])
+
+        rotated_vector = torch.matmul(R, rot_vector)
+
+        return rotated_vector
+
+
     def getBezierCurveCylinder(self, control_pts, radius): 
         
-        self.num_samples = 9
+        self.num_samples = 30
         #self.num_samples = 200
         P0 = control_pts[0, :]
         P1 = control_pts[1, :]
         P2 = control_pts[2, :]
         P3 = control_pts[3, :]
+        origin = [0, 0, 0]
+        num_samples_on_circ = 8
+        rotation_angle = math.radians(360 / num_samples_on_circ)
 
-        print(P0)
-        print(P1)
-        print(P2)
-        print(P3)
+        # print(P0)
+        # print(P1)
+        # print(P2)
+        # print(P3)
 
         sample_list = torch.linspace(0, 1, self.num_samples)
 
-        print("\n Sample list: ")
-        print(sample_list)
+        # print("\n Sample list: ")
+        # print(sample_list)
 
         # Get positions and normals [NOTE: SHOULD be tangents?] from samples along bezier curve
         pos_bezier = torch.zeros(self.num_samples, 3)
@@ -232,43 +278,141 @@ class reconstructCurve():
         for i, s in enumerate(sample_list):
             pos_bezier[i, :] = (1 - s)**3 * P0 + 3 * s * (1 - s)**2 * \
                 P1 + 3 * (1 - s) * s**2 * P2 + s**3 * P3
-            der_bezier[i, :] = -(1 - s)**2 * P0 + ((1 - s)**2 - 2 * s * (1 - s)) * P1 + (-s**2 + 2 *
-                                                                                    (1 - s) * s) * P2 + s**2 * P3
+            der_bezier[i, :] = 3 * (1 - s)**2 * (P1 - P0) + 6 * (1 - s) * s * (P2 - P1) + 3 * s**2 * (P3 - P2)
             double_der_bezier[i, :] = 6 * (1 - s) * (P2 - 2*P1 + P0) + 6 * (P3 - 2*P2 + P1) * s
-            
-        # print("\n Positions of bezier points: ")
-        # print(pos_bezier)
-        # print("\n Derivatives of bezier points: ")
-        # print(der_bezier)
-        # print("\n Double Derivatives of bezier points: ")
-        # print(double_der_bezier)
 
-        # plt.xlim(0, 5)
-        # plt.ylim(0, 5)
+        # Translate der_bezier and double_der_bezier such that they start at their corresponding point
+        # Normalize them too so that they are unit vectors
+        trans_unit_der_bezier = torch.zeros(self.num_samples, 3)
+        trans_unit_double_der_bezier = torch.zeros(self.num_samples, 3)
+        for i, (point, untrans_der_vector, untrans_double_der_vector) in enumerate(zip(pos_bezier, der_bezier, double_der_bezier)): 
+            trans_unit_der_bezier[i, 0] = point[0] + untrans_der_vector[0]
+            trans_unit_der_bezier[i, 1] = point[1] + untrans_der_vector[1]
+            trans_unit_der_bezier[i, 2] = point[2] + untrans_der_vector[2]
+
+            trans_unit_double_der_bezier[i, 0] = point[0] + untrans_double_der_vector[0]
+            trans_unit_double_der_bezier[i, 1] = point[1] + untrans_double_der_vector[1]
+            trans_unit_double_der_bezier[i, 2] = point[2] + untrans_double_der_vector[2]
+
+
+            trans_unit_der_bezier[i, :] = F.normalize(trans_unit_der_bezier[i, :], p=2.0, dim=0)
+            trans_unit_double_der_bezier[i, :] = F.normalize(trans_unit_double_der_bezier[i, :], p=2.0, dim=0)
+
+
+
+
+        # Get 3d normal unit vectors of points on bezier curve
+        normal_bezier = torch.zeros(self.num_samples, 3)
+        for i, (point, der_vector, double_der_vector) in enumerate(zip(pos_bezier, der_bezier, double_der_bezier)):
+            normal_bezier[i, :] = self.getFrenetFrame(der_vector, double_der_vector)
+            # Translate normal vectors such that they start at their corresponding point 
+            normal_bezier[i, 0] += point[0]
+            normal_bezier[i, 1] += point[1]
+            normal_bezier[i, 2] += point[2]
+
+        # Translate normal vectors such that they start at corresponding point 
+        # for i, (point, norm_vector) in enumerate(zip(pos_bezier, normal_bezier)): 
+            
+            
+        print("\n Positions of bezier points: ")
+        print(pos_bezier)
+        print("\n Derivatives of bezier points: ")
+        print(der_bezier)
+        print("\n Double Derivatives of bezier points: ")
+        print(double_der_bezier)
+        print("\n Normals of bezier points: ")
+        print(normal_bezier)
+
+       
         fig = plt.figure()
         ax = fig.add_subplot(111, projection='3d')
 
-        for point in pos_bezier: 
-            # print(point)
+        # Create figure plotting bezier curve points
+        # for point in pos_bezier: 
+        #     ax.scatter(point[0], point[1], point[2])
+
+        # Plot bezier curve points and the tangent vectors at those points. MUST TRANSLATE DERIVATIVE VECTORS such that they start at their 
+        # corresponding point
+        for point, tan_vector in zip(pos_bezier, der_bezier): 
+            normalized_tan_vector = F.normalize(tan_vector, p=2.0, dim=0)
             ax.scatter(point[0], point[1], point[2])
+            ax.scatter(point[0] + normalized_tan_vector[0], point[1] + normalized_tan_vector[1], point[2] + normalized_tan_vector[2])
+            ax.plot([point[0], point[0] + normalized_tan_vector[0]], [point[1], point[1] + normalized_tan_vector[1]], [point[2], point[2] + normalized_tan_vector[2]])
+
+
+        # Plot bezier curve points and the tangent vectors at those points == WRONG -- didn't translate the derivative vectors such that 
+        # they start at their corresponding point
+        # for point, tan_vector in zip(pos_bezier, der_bezier): 
+        #     normalized_tan_vector = F.normalize(tan_vector, p=2.0, dim=0)
+        #     ax.scatter(point[0], point[1], point[2])
+        #     ax.scatter(normalized_tan_vector[0], normalized_tan_vector[1], normalized_tan_vector[2])
+        #     ax.plot([point[0], normalized_tan_vector[0]], [point[1], normalized_tan_vector[1]], [point[2], normalized_tan_vector[2]])
+
+        # Plot bezier curve points and the normal vectors at those points
+        # for point, norm_vector in zip(pos_bezier, normal_bezier): 
+        #     ax.scatter(point[0], point[1], point[2])
+        #     ax.scatter(norm_vector[0], norm_vector[1], norm_vector[2])
+        #     ax.plot([point[0], norm_vector[0]], [point[1], norm_vector[1]], [point[2], norm_vector[2]])
         
-        plt.show()
+        
 
-        # Calculate 3d normals at each point (RMF method)
-        # bezier_normal_vectors 
+        # Loop through each normal vec on Bezier curve. Rotate each normal by x degrees. Obtain points on circle
+        cylinder_pts = torch.zeros(self.num_samples, num_samples_on_circ, 3) 
+        for i, (point, norm_vector, tangent_vector) in enumerate(zip(pos_bezier, normal_bezier, der_bezier)): 
+            for j in range(num_samples_on_circ): 
+                print("Rotation Angle: " + str(rotation_angle + (j - 1) * (rotation_angle)))
+                cylinder_pts[ i:, j, :] = self.getRotatedVector(rotation_angle + (j - 1) * (rotation_angle), F.normalize(tangent_vector, p=2.0, dim=0), norm_vector)
+                cylinder_pts[ i:, j, :] = F.normalize(cylinder_pts[ i:, j, :], p=2.0, dim=0)
+                # Translate cylinder vectors such that they start at their corresponding point 
+                cylinder_pts[i, j, 0] += point[0]
+                cylinder_pts[i, j, 1] += point[1]
+                cylinder_pts[i, j, 2] += point[2]
+                
 
+        # cylinder_pts *= radius
+        print("\n Points on cylinder surface: ")
+        print(cylinder_pts)
 
-        # Rotate each 3d normal by x degrees. Obtain points on circle
+        # print("\n Example point on circle: \n")
+        # test_circle_vector = cylinder_pts[0, 0, :]
+        # print(test_circle_vector)
+        # ax.scatter(test_circle_vector[0], test_circle_vector[1], test_circle_vector[2])
+
 
         # Somehow graph each tensor to visualize it
+        # Loop through each circle. Loop through each point on circle. Plot those points
+        # for i, (point, norm_vector) in enumerate(zip(pos_bezier, normal_bezier)): 
+        #     ax.scatter(point[0], point[1], point[2])
+        #     for j in range(num_samples_on_circ):
+        #         # print("\n Current cylinder vector: " + str(cylinder_pts[i, j, :]))
+        #         circle_vector = cylinder_pts[i, j, :]
+        #         ax.scatter(circle_vector[0], circle_vector[1], circle_vector[2])
+        #         # print("\n PLOTTED! ")
+        #         ax.plot([point[0], circle_vector[0]], [point[1], circle_vector[1]], [point[2], circle_vector[2]])
 
-        return 0
+        plt.show()
 
 
 a = reconstructCurve()
-test_control_points = torch.tensor([[0., 0., 0.], 
+test_control_points1 = torch.tensor([[0., 0., 0.], 
                                     [0., 1., 2.5], 
                                     [0., 2., 0.5], 
                                     [0., 3., 3.]])
 
-a.getBezierCurveCylinder(test_control_points, 0.05)
+test_control_points2 = torch.tensor([[0., 0., 0.], 
+                                    [2., 0.5, 2.5], 
+                                    [-2., 2., 0.5], 
+                                    [0., 3., 3.]])
+
+test_control_points3 = torch.tensor([[0., 0., 0.], 
+                                    [20., 5., 25.], 
+                                    [-20., 20., 5.], 
+                                    [0., 30., 30.]])
+
+test_control_points4 = torch.tensor([[0., 0., 0.], 
+                                    [5., 5., 5.], 
+                                    [10., 10., 10.], 
+                                    [15., 15., 15.]])
+
+
+a.getBezierCurveCylinder(test_control_points2, 0.05)
