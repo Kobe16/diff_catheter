@@ -251,7 +251,7 @@ class reconstructCurve():
 
     def getBezierCurveCylinder(self, control_pts, radius): 
         
-        self.num_samples = 10
+        self.num_samples = 30
         #self.num_samples = 200
         P0 = control_pts[0, :]
         P1 = control_pts[1, :]
@@ -301,8 +301,6 @@ class reconstructCurve():
             # trans_unit_der_bezier[i, :] = F.normalize(trans_unit_der_bezier[i, :], p=2.0, dim=0)
             # # print("Should be one: " + str(trans_unit_der_bezier[i, 0]**2 + trans_unit_der_bezier[i, 1]**2 + trans_unit_der_bezier[i, 2]**2))
             # trans_unit_double_der_bezier[i, :] = F.normalize(trans_unit_double_der_bezier[i, :], p=2.0, dim=0)
-
-
 
 
         # Get 3d normal unit vectors of points on bezier curve
@@ -360,10 +358,10 @@ class reconstructCurve():
         #     ax.plot([point[0], normalized_tan_vector[0]], [point[1], normalized_tan_vector[1]], [point[2], normalized_tan_vector[2]])
 
         # Plot bezier curve points and the normal vectors at those points
-        # for point, norm_vector in zip(pos_bezier, normal_bezier): 
-        #     ax.scatter(point[0], point[1], point[2])
-        #     ax.scatter(norm_vector[0], norm_vector[1], norm_vector[2])
-        #     ax.plot([point[0], norm_vector[0]], [point[1], norm_vector[1]], [point[2], norm_vector[2]])
+        for point, norm_vector in zip(pos_bezier, normal_bezier): 
+            ax.scatter(point[0], point[1], point[2])
+            ax.scatter(norm_vector[0], norm_vector[1], norm_vector[2])
+            ax.plot([point[0], norm_vector[0]], [point[1], norm_vector[1]], [point[2], norm_vector[2]])
         
         for i, (der_vector, norm_vector) in enumerate(zip(trans_unit_der_bezier, normal_bezier)): 
             print("Should be 0: " + str(torch.cross(der_vector, norm_vector)))
@@ -401,9 +399,9 @@ class reconstructCurve():
         #         circle_vector = cylinder_pts[i, j, :]
         #         ax.scatter(circle_vector[0], circle_vector[1], circle_vector[2])
         #         # print("\n PLOTTED! ")
-        # #         ax.plot([point[0], circle_vector[0]], [point[1], circle_vector[1]], [point[2], circle_vector[2]])
+        #         ax.plot([point[0], circle_vector[0]], [point[1], circle_vector[1]], [point[2], circle_vector[2]])
 
-        # plt.show()
+        plt.show()
 
 
 a = reconstructCurve()

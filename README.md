@@ -3,12 +3,17 @@
 ## Dependencies
 - Blender       (enter in scripts/path_settings.py the path to the directory containing Blender executable)
 - torch         (pip)
+   - (1.13.0 for Apple Silicon)
 - opencv-python (pip)
 - matplotlib    (pip)
 - numpy         (pip)
 - shapely       (pip)
 
 - scikit-image  (pip)
+- torchvision   (pip)
+   - (0.14.0 for Apple Silicon)
+- pytorch3d     (pip)
+   - (install from github for Apple Silicon)
 
 ## Routine of Operation
 1. Modify scripts/path_settings.py
