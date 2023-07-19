@@ -2,6 +2,7 @@ import sys
 from turtle import pd
 
 sys.path.append('..')
+sys.path.insert(1, '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/scripts')
 
 import os
 import numpy as np
@@ -22,8 +23,16 @@ import pdb
 
 
 class BlenderRenderCatheter:
+    '''
+    This class works with the BezierSet class to render out a Bezier curve
+    in Blender. 
+    '''
 
     def __init__(self):
+        '''
+        n_beziers: number of Bezier curves to render
+        bezier_set: instance of the the BezierSet class
+        '''
 
         ## initialize a catheter
         n_beziers = 1
@@ -76,7 +85,8 @@ if __name__ == '__main__':
     p_start = torch.tensor([0.02, 0.002, 0.0])
 
     # case_naming = '/home/fei/ARCLab-CCCatheter/scripts/diff_render/blender_imgs/diff_render_1'
-    case_naming = '/home/fei/diff_catheter/scripts/diff_render/blender_imgs/diff_render_2'
+    # case_naming = '/home/fei/diff_catheter/scripts/diff_render/blender_imgs/diff_render_2'
+    case_naming = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/scripts/diff_render/blender_imgs'
     img_save_path = case_naming + '.png'
     cc_specs_path = case_naming + '.npy'
     target_specs_path = None
