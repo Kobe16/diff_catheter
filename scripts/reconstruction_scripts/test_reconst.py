@@ -18,6 +18,8 @@ from skimage.morphology import skeletonize
 from shapely.geometry import Point
 from shapely.geometry.polygon import Polygon
 
+from random import random
+
 import torch
 import torch.nn.functional as F
 import shutil
@@ -294,20 +296,39 @@ class reconstructCurve():
         return translated_set_of_vectors
 
 
+    def getRandCirclePoint(self, radius, center_point, normal_vec, binormal_vec): 
+        '''
+        Method to calculate random point on a circle in 3-dimensions. 
+
+        Args: 
+            radius: radius value of circle
+            center_point (tensor): center point of circle; i.e., current point on Bezier curve
+            normal_vec: normal vector at that point on Bezier curve
+            binormal_vec: binormal vector at that point on Bezier curve
+        '''
+        rand_dist_from_center = radius * math.sqrt(random())
+        rand_angle = 2 * math.pi * random()
+
+        rand_circle_point = center_point + rand_dist_from_center * (math.cos(rand_angle)) * normal_vec + rand_dist_from_center * (math.sin(rand_angle)) * binormal_vec
+
+        return rand_circle_point
+
+
     def getBezierCurveCylinder(self, control_pts, radius): 
         
-        self.num_samples = 20
+        self.num_samples = 15
+        self.points_per_circle = 15
+        self.cylinder_mesh_points = torch.zeros(self.num_samples, self.points_per_circle, 3)
+        
         #self.num_samples = 200
         P0 = control_pts[0, :]
         P1 = control_pts[1, :]
         P2 = control_pts[2, :]
         P3 = control_pts[3, :]
-        origin = [0, 0, 0]
-        num_samples_on_circ = 8
 
         sample_list = torch.linspace(0, 1, self.num_samples)
 
-        print("\n Sample list: " + str(sample_list))
+        # print("\n Sample list: " + str(sample_list))
 
         # Get positions and normals [NOTE: SHOULD be tangents?] from samples along bezier curve
         pos_bezier = torch.zeros(self.num_samples, 3)
@@ -336,10 +357,10 @@ class reconstructCurve():
         for pos_vec, tan_vec, normal_vec, binormal_vec  in zip(pos_bezier, der_bezier, normal_bezier, binormal_bezier): 
 
             # A set of vectors are mutually orthogonal if every pair of vectors is orthogonal (DP = 0)
-            print("tan . normal = " + str(torch.dot(tan_vec, normal_vec)))
-            print("tan . binormal = " + str(torch.dot(tan_vec, binormal_vec)))
-            print("normal . binormal = " + str(torch.dot(normal_vec, binormal_vec)))
-            print('\n')
+            # print("tan . normal = " + str(torch.dot(tan_vec, normal_vec)))
+            # print("tan . binormal = " + str(torch.dot(tan_vec, binormal_vec)))
+            # print("normal . binormal = " + str(torch.dot(normal_vec, binormal_vec)))
+            # print('\n')
 
             tan_vec_normalized = self.getNormalizedVectors(tan_vec)
             normal_vec__normalized = self.getNormalizedVectors(normal_vec)
@@ -350,21 +371,20 @@ class reconstructCurve():
             # print("binormal_vec_normalized" + str(binormal_vec_normalized))
             
             # Points along Bezier curve
-            ax.scatter(pos_vec[0], pos_vec[1], pos_vec[2])
+            # ax.scatter(pos_vec[0], pos_vec[1], pos_vec[2])
 
             # Tangents along Bezier curve
-            ax.scatter(pos_vec[0] + tan_vec_normalized[0], pos_vec[1] + tan_vec_normalized[1], pos_vec[2] + tan_vec_normalized[2])
-            ax.plot([pos_vec[0], pos_vec[0]+ tan_vec_normalized[0]], [pos_vec[1], pos_vec[1]+ tan_vec_normalized[1]], [pos_vec[2], pos_vec[2]+ tan_vec_normalized[2]])
+            # ax.scatter(pos_vec[0] + tan_vec_normalized[0], pos_vec[1] + tan_vec_normalized[1], pos_vec[2] + tan_vec_normalized[2])
+            # ax.plot([pos_vec[0], pos_vec[0]+ tan_vec_normalized[0]], [pos_vec[1], pos_vec[1]+ tan_vec_normalized[1]], [pos_vec[2], pos_vec[2]+ tan_vec_normalized[2]])
 
             # Normals along Bezier curve
-            ax.scatter(pos_vec[0] + normal_vec__normalized[0], pos_vec[1] + normal_vec__normalized[1], pos_vec[2] + normal_vec__normalized[2])
-            ax.plot([pos_vec[0], pos_vec[0]+ normal_vec__normalized[0]], [pos_vec[1], pos_vec[1]+ normal_vec__normalized[1]], [pos_vec[2], pos_vec[2]+ normal_vec__normalized[2]])
+            # ax.scatter(pos_vec[0] + normal_vec__normalized[0], pos_vec[1] + normal_vec__normalized[1], pos_vec[2] + normal_vec__normalized[2])
+            # ax.plot([pos_vec[0], pos_vec[0]+ normal_vec__normalized[0]], [pos_vec[1], pos_vec[1]+ normal_vec__normalized[1]], [pos_vec[2], pos_vec[2]+ normal_vec__normalized[2]])
 
             # Binormals along Bezier curve
-            ax.scatter(pos_vec[0] + binormal_vec_normalized[0], pos_vec[1] + binormal_vec_normalized[1], pos_vec[2] + binormal_vec_normalized[2])
-            ax.plot([pos_vec[0], pos_vec[0]+ binormal_vec_normalized[0]], [pos_vec[1], pos_vec[1]+ binormal_vec_normalized[1]], [pos_vec[2], pos_vec[2]+ binormal_vec_normalized[2]])
+            # ax.scatter(pos_vec[0] + binormal_vec_normalized[0], pos_vec[1] + binormal_vec_normalized[1], pos_vec[2] + binormal_vec_normalized[2])
+            # ax.plot([pos_vec[0], pos_vec[0]+ binormal_vec_normalized[0]], [pos_vec[1], pos_vec[1]+ binormal_vec_normalized[1]], [pos_vec[2], pos_vec[2]+ binormal_vec_normalized[2]])
             
-
         # Plot Bezier curve points
         # for point in pos_bezier: 
         #     ax.scatter(point[0], point[1], point[2])
@@ -384,9 +404,21 @@ class reconstructCurve():
         #     ax.scatter(norm_vector[0], norm_vector[1], norm_vector[2])
         #     ax.plot([point[0], norm_vector[0]], [point[1], norm_vector[1]], [point[2], norm_vector[2]])
         
+
+        for i, (pos_vec, normal_vec, binormal_vec) in enumerate(zip(pos_bezier, normal_bezier, binormal_bezier)): 
+            for j in range(self.points_per_circle): 
+                normal_vec_normalized = self.getNormalizedVectors(normal_vec)
+                binormal_vec_normalized = self.getNormalizedVectors(binormal_vec)
+                self.cylinder_mesh_points[i, j, :] = self.getRandCirclePoint(radius, pos_vec, normal_vec_normalized, binormal_vec_normalized)
+    
+                # Plot cylinder mesh points
+                ax.scatter(pos_vec[0] + self.cylinder_mesh_points[i, j, 0], pos_vec[1] + self.cylinder_mesh_points[i, j, 1], pos_vec[2] + self.cylinder_mesh_points[i, j, 2])
+
+
         ax.set_box_aspect([1,1,1]) 
         self.set_axes_equal(ax)
         plt.show()
+
 
 
 
@@ -418,4 +450,4 @@ test_control_points5 = torch.tensor([[[0., 0., 0.],
                                     [15., 15., 15.]]])
 
 
-a.getBezierCurveCylinder(test_control_points3, 0.05)
+a.getBezierCurveCylinder(test_control_points3, 10)
