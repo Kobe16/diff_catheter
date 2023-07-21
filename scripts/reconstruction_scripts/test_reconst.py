@@ -108,6 +108,12 @@ class reconstructCurve():
         self.pos_bezier_3D_init = self.getAnyBezierCurve(para_init, self.P0_gt)
 '''
     
+    def __init__(self): 
+        self.fig = plt.figure()
+        self.ax = self.fig.add_subplot(111, projection='3d')
+        self.epsilon = 1e-8
+
+
     def getBezierCurve(self, control_pts):
         """ takes control points as input, calculates positions and 
         derivatives of points along the Bezier curve, converts the 
@@ -200,6 +206,9 @@ class reconstructCurve():
 
         return True
 
+###################################################################################################
+###################################################################################################
+###################################################################################################
 
     def set_axes_equal(self, ax: plt.Axes):
         """Set 3D plot axes to equal scale.
@@ -223,6 +232,9 @@ class reconstructCurve():
         ax.set_ylim3d([y - radius, y + radius])
         ax.set_zlim3d([z - radius, z + radius])
 
+###################################################################################################
+###################################################################################################
+###################################################################################################
 
     def getBezierTNB(self, bezier_pos, bezier_der, bezier_snd_der):
 
@@ -233,12 +245,12 @@ class reconstructCurve():
         bezier_normal_numerator_n = torch.mul(
             bezier_der_n, torch.linalg.norm(torch.linalg.cross(bezier_snd_der, bezier_der), ord=2, dim=1))
 
-        bezier_normal = bezier_normal_numerator / torch.unsqueeze(bezier_normal_numerator_n, dim=1)
+        bezier_normal = bezier_normal_numerator / (torch.unsqueeze(bezier_normal_numerator_n, dim=1) + self.epsilon)
 
         bezier_binormal_numerator = torch.linalg.cross(bezier_der, bezier_snd_der)
         bezier_binormal_numerator_n = torch.linalg.norm(bezier_binormal_numerator, ord=2, dim=1)
 
-        bezier_binormal = bezier_binormal_numerator / torch.unsqueeze(bezier_binormal_numerator_n, dim=1)
+        bezier_binormal = bezier_binormal_numerator / (torch.unsqueeze(bezier_binormal_numerator_n, dim=1) + self.epsilon)
 
         print("bezier_normal: " + str(bezier_normal))
         print("bezier_binormal" + str(bezier_binormal))
@@ -256,7 +268,7 @@ class reconstructCurve():
         bezier_normal_numerator_n = torch.mul(
             bezier_der_n, torch.linalg.norm(torch.linalg.cross(bezier_snd_der, bezier_der), ord=2, dim=1))
 
-        bezier_normal = bezier_normal_numerator / torch.unsqueeze(bezier_normal_numerator_n, dim=1)
+        bezier_normal = bezier_normal_numerator / (torch.unsqueeze(bezier_normal_numerator_n, dim=1) + self.epsilon)
 
         # print("bezier_normal: " + str(bezier_normal))
 
@@ -269,7 +281,7 @@ class reconstructCurve():
         bezier_binormal_numerator = torch.linalg.cross(bezier_der, bezier_snd_der)
         bezier_binormal_numerator_n = torch.linalg.norm(bezier_binormal_numerator, ord=2, dim=1)
 
-        bezier_binormal = bezier_binormal_numerator / torch.unsqueeze(bezier_binormal_numerator_n, dim=1)
+        bezier_binormal = bezier_binormal_numerator / (torch.unsqueeze(bezier_binormal_numerator_n, dim=1) + self.epsilon)
 
         # print("bezier_binormal" + str(bezier_binormal))
 
@@ -278,13 +290,20 @@ class reconstructCurve():
 
         return bezier_binormal
 
+###################################################################################################
+###################################################################################################
+###################################################################################################
 
     def getNormalizedVectors(self, set_of_vectors): 
         '''
         Method to get the normalized version of a set of vectors (of the shape: (num_samples, 3)). 
         Calculates the L2 norm (cartesian magnitude) of each vector and divides by it. 
+        When vector norm is zero, dividing the vector by its norm will result in NaN values 
+        because division by zero is mathematically undefined. To avoid NaN values, add a small epsilon 
+        value to the denominator before performing the division. 
+        This will prevent division by exactly zero and keep the vectors valid. 
         '''
-        normalized_set_of_vectors = set_of_vectors / torch.linalg.norm(set_of_vectors, ord=2, dim=0)
+        normalized_set_of_vectors = set_of_vectors / (torch.linalg.norm(set_of_vectors, ord=2, dim=0) + self.epsilon)
         return normalized_set_of_vectors
 
     def getTranslatedVectors(self, pos_bezier, set_of_vectors): 
@@ -294,7 +313,6 @@ class reconstructCurve():
         '''
         translated_set_of_vectors = pos_bezier + set_of_vectors
         return translated_set_of_vectors
-
 
     def getRandCirclePoint(self, radius, center_point, normal_vec, binormal_vec): 
         '''
@@ -313,10 +331,64 @@ class reconstructCurve():
 
         return rand_circle_point
 
+    def plot3dPoints(self, show_vector_lines, plot_bezier_points, pos_bezier, set_of_vectors=None): 
+        '''
+        Method to plot Bezier vectors using MatPlotLib
+
+        Args: 
+            pos_bezier (Tensor): Points along Bezier curve
+            set_of_vectors (Tensor): Vectors (tangent, normal, binormal) along Bezier curve
+            show_vector_lines (boolean): Boolean to show vector line between vector initial and terminal points
+            plot_bezier_points (boolean): Boolean to plot points along Bezier curve
+        '''
+        # print("INSIDE pos_bezier: " + str(pos_bezier))
+        # print("INSIDE set_of_vectors: " + str(set_of_vectors))
+
+        # Only plot points along Bezier curve. No vector lines
+        if plot_bezier_points is True and set_of_vectors is None and show_vector_lines is False: 
+            for point in pos_bezier: 
+                self.ax.scatter(point[0], point[1], point[2])
+
+        # Only plot vector points. No vector lines
+        elif plot_bezier_points is False and set_of_vectors is not None and show_vector_lines is False: 
+            vec_normalized = self.getNormalizedVectors(set_of_vectors)
+            vec_normalized_translated = self.getTranslatedVectors(pos_bezier, vec_normalized)
+
+            for vec in vec_normalized_translated: 
+                self.ax.scatter(vec[0], vec[1], vec[2])
+
+        # Only plot vectors points. Show vector lines
+        elif plot_bezier_points is False and set_of_vectors is not None and show_vector_lines is True:
+            vec_normalized = self.getNormalizedVectors(set_of_vectors)
+            vec_normalized_translated = self.getTranslatedVectors(pos_bezier, vec_normalized)
+            
+            for pos_vec, vec in zip(pos_bezier, vec_normalized_translated): 
+                self.ax.scatter(vec[0], vec[1], vec[2])
+                self.ax.plot([pos_vec[0], vec[0]], [pos_vec[1], vec[1]], [pos_vec[2], vec[2]])
+
+        # Plot points along Bezier curve and vectors points. No vector lines
+        elif plot_bezier_points is True and set_of_vectors is not None and show_vector_lines is False: 
+            vec_normalized = self.getNormalizedVectors(set_of_vectors)
+            vec_normalized_translated = self.getTranslatedVectors(pos_bezier, vec_normalized)
+
+            for point, vec in zip(pos_bezier, vec_normalized_translated): 
+                self.ax.scatter(point[0], point[1], point[2])
+                self.ax.scatter(vec[0], vec[1], vec[2])
+
+        # Plot points along Bezier curve and vectors points. Show vector lines
+        elif plot_bezier_points is True and  set_of_vectors is not None and show_vector_lines is True: 
+            vec_normalized = self.getNormalizedVectors(set_of_vectors)
+            vec_normalized_translated = self.getTranslatedVectors(pos_bezier, vec_normalized)
+
+            for point, vec in zip(pos_bezier, vec_normalized_translated): 
+                self.ax.scatter(point[0], point[1], point[2])
+                self.ax.scatter(vec[0], vec[1], vec[2])
+                self.ax.plot([pos_vec[0], vec[0]], [pos_vec[1], vec[1]], [pos_vec[2], vec[2]])
+
 
     def getBezierCurveCylinder(self, control_pts, radius): 
         
-        self.num_samples = 15
+        self.num_samples = 8
         self.points_per_circle = 15
         self.cylinder_mesh_points = torch.zeros(self.num_samples, self.points_per_circle, 3)
         
@@ -346,65 +418,22 @@ class reconstructCurve():
         normal_bezier = self.getBezierNormal(der_bezier, double_der_bezier)
         binormal_bezier = self.getBezierBinormal(der_bezier, double_der_bezier)     
 
+        # print("OG VECTORS")
         # print("pos_bezier: " + str(pos_bezier))
         # print("normal_bezier: " + str(normal_bezier))
         # print("binormal_bezier: " + str(binormal_bezier))
 
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')
-
         # Plot TNB frames for all samples along bezier curve
-        for pos_vec, tan_vec, normal_vec, binormal_vec  in zip(pos_bezier, der_bezier, normal_bezier, binormal_bezier): 
+        # Plot points along Bezier curve
+        self.plot3dPoints(False, True, pos_bezier)
+        # Plot tangents along Bezier curve
+        self.plot3dPoints(True, False, pos_bezier, der_bezier)
+        # Plot normals along Bezier curve
+        self.plot3dPoints(True, False, pos_bezier, normal_bezier)
+        # Plot binormals along Bezier curve
+        self.plot3dPoints(True, False, pos_bezier, binormal_bezier)
 
-            # A set of vectors are mutually orthogonal if every pair of vectors is orthogonal (DP = 0)
-            # print("tan . normal = " + str(torch.dot(tan_vec, normal_vec)))
-            # print("tan . binormal = " + str(torch.dot(tan_vec, binormal_vec)))
-            # print("normal . binormal = " + str(torch.dot(normal_vec, binormal_vec)))
-            # print('\n')
-
-            tan_vec_normalized = self.getNormalizedVectors(tan_vec)
-            normal_vec__normalized = self.getNormalizedVectors(normal_vec)
-            binormal_vec_normalized = self.getNormalizedVectors(binormal_vec)
-
-            # print("tan_vec_normalized: " + str(tan_vec_normalized))
-            # print("normal_vec__normalized" + str(normal_vec__normalized))
-            # print("binormal_vec_normalized" + str(binormal_vec_normalized))
-            
-            # Points along Bezier curve
-            # ax.scatter(pos_vec[0], pos_vec[1], pos_vec[2])
-
-            # Tangents along Bezier curve
-            # ax.scatter(pos_vec[0] + tan_vec_normalized[0], pos_vec[1] + tan_vec_normalized[1], pos_vec[2] + tan_vec_normalized[2])
-            # ax.plot([pos_vec[0], pos_vec[0]+ tan_vec_normalized[0]], [pos_vec[1], pos_vec[1]+ tan_vec_normalized[1]], [pos_vec[2], pos_vec[2]+ tan_vec_normalized[2]])
-
-            # Normals along Bezier curve
-            # ax.scatter(pos_vec[0] + normal_vec__normalized[0], pos_vec[1] + normal_vec__normalized[1], pos_vec[2] + normal_vec__normalized[2])
-            # ax.plot([pos_vec[0], pos_vec[0]+ normal_vec__normalized[0]], [pos_vec[1], pos_vec[1]+ normal_vec__normalized[1]], [pos_vec[2], pos_vec[2]+ normal_vec__normalized[2]])
-
-            # Binormals along Bezier curve
-            # ax.scatter(pos_vec[0] + binormal_vec_normalized[0], pos_vec[1] + binormal_vec_normalized[1], pos_vec[2] + binormal_vec_normalized[2])
-            # ax.plot([pos_vec[0], pos_vec[0]+ binormal_vec_normalized[0]], [pos_vec[1], pos_vec[1]+ binormal_vec_normalized[1]], [pos_vec[2], pos_vec[2]+ binormal_vec_normalized[2]])
-            
-        # Plot Bezier curve points
-        # for point in pos_bezier: 
-        #     ax.scatter(point[0], point[1], point[2])
-
-    
-        # Plot Bezier curve points & tangent vectors. 
-        # USE TRANSLATED DERIVATIVE VECTORS such that they start at their corresponding point
-        # for point, tan_vector in zip(pos_bezier, trans_unit_der_bezier): 
-        #     ax.scatter(point[0], point[1], point[2])
-        #     ax.scatter(tan_vector[0], tan_vector[1], tan_vector[2])
-        #     ax.plot([point[0], tan_vector[0]], [point[1], tan_vector[1]], [point[2], tan_vector[2]])
-
-
-        # Plot Bezier curve points & normal vectors.
-        # for point, norm_vector in zip(pos_bezier, normal_bezier): 
-        #     ax.scatter(point[0], point[1], point[2])
-        #     ax.scatter(norm_vector[0], norm_vector[1], norm_vector[2])
-        #     ax.plot([point[0], norm_vector[0]], [point[1], norm_vector[1]], [point[2], norm_vector[2]])
-        
-
+        # Get Cylinder mesh points
         for i, (pos_vec, normal_vec, binormal_vec) in enumerate(zip(pos_bezier, normal_bezier, binormal_bezier)): 
             for j in range(self.points_per_circle): 
                 normal_vec_normalized = self.getNormalizedVectors(normal_vec)
@@ -412,15 +441,19 @@ class reconstructCurve():
                 self.cylinder_mesh_points[i, j, :] = self.getRandCirclePoint(radius, pos_vec, normal_vec_normalized, binormal_vec_normalized)
     
                 # Plot cylinder mesh points
-                ax.scatter(pos_vec[0] + self.cylinder_mesh_points[i, j, 0], pos_vec[1] + self.cylinder_mesh_points[i, j, 1], pos_vec[2] + self.cylinder_mesh_points[i, j, 2])
+                # self.ax.scatter(pos_vec[0] + self.cylinder_mesh_points[i, j, 0], pos_vec[1] + self.cylinder_mesh_points[i, j, 1], pos_vec[2] + self.cylinder_mesh_points[i, j, 2])
 
 
-        ax.set_box_aspect([1,1,1]) 
-        self.set_axes_equal(ax)
+        self.ax.set_box_aspect([1,1,1]) 
+        self.set_axes_equal(self.ax)
         plt.show()
 
 
-
+###################################################################################################
+###################################################################################################
+###################################################################################################
+###################################################################################################
+###################################################################################################
 
 a = reconstructCurve()
 test_control_points1 = torch.tensor([[0., 0., 0.], 

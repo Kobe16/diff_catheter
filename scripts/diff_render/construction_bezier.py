@@ -106,6 +106,7 @@ class ConstructionBezier(nn.Module):
         # self.bezier_pos_cam = bezier_pos_cam_H[1:, :-1]  ## without including the first point
         self.bezier_pos_cam = bezier_pos_cam_H[:, :-1]
 
+
         der_bezier_H = torch.cat((self.bezier_der, torch.zeros((self.bezier_num_samples, 1))), dim=1)
         bezier_der_cam_H = torch.transpose(torch.matmul(self.cam_RT_H, torch.transpose(der_bezier_H[1:, :], 0, 1)), 0,
                                            1)
@@ -115,6 +116,7 @@ class ConstructionBezier(nn.Module):
         bezier_der_cam_H = torch.transpose(torch.matmul(self.cam_RT_H, torch.transpose(der_bezier_H[1:, :], 0, 1)), 0,
                                            1)
         self.bezier_der_cam = bezier_der_cam_H[:, :-1]
+
 
         der_snd_bezier_H = torch.cat((self.bezier_snd_der, torch.zeros((self.bezier_num_samples, 1))), dim=1)
         bezier_snd_der_cam_H = torch.transpose(
