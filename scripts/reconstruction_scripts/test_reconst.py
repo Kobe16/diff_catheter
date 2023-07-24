@@ -692,35 +692,37 @@ class reconstructCurve():
         # ---------------
         # plot with
         # ---------------
-        fig, axes = plt.subplots(1, 2, figsize=(15, 5))
-        ax = axes.ravel()
+        fig, ax = plt.subplots(figsize=(8, 5))
 
-        ax[0].imshow(cv2.cvtColor(segmented_circle_draw_img_rgb, cv2.COLOR_BGR2RGB))
-        ax[0].set_title('2d Circle Segment')
-
-        # ax[1].imshow(cv2.cvtColor(tangent_draw_img_rgb, cv2.COLOR_BGR2RGB))
-        # ax[1].set_title('2d tangents')
-
-        # ax[2].imshow(cv2.cvtColor(cylinder_draw_img_rgb, cv2.COLOR_BGR2RGB))
-        # ax[2].set_title('Projected cylinders')
+        ax.imshow(cv2.cvtColor(segmented_circle_draw_img_rgb, cv2.COLOR_BGR2RGB))
+        ax.set_title('2D Bezier Cylinder Mesh')
 
         plt.tight_layout()
         plt.show()
 
-        # cv2.imwrite('./gradient_steps_imgs/centerline_draw_img_rgb_' + str(self.GD_Iteration) + '.jpg', centerline_draw_img_rgb)
-        # cv2.imwrite('./gradient_steps_imgs/tangent_draw_img_rgb_' + str(self.GD_Iteration) + '.jpg', tangent_draw_img_rgb)
-
-        # return centerline_draw_img_rgb, tangent_draw_img_rgb
         return segmented_circle_draw_img_rgb       
     
 ###################################################################################################
 ###################################################################################################
 ###################################################################################################
 
-    def getBezierCurveCylinder(self, control_pts, radius): 
+    def getBezierCurveCylinder(self, control_pts, radius, plot_type): 
+        '''
+        Method to obtain bezier curve position, tangents, normals, and binormals. 
+        Calls helper methods to plot these vectors. 
+
+        Args: 
+            control_pts (tensor of shape [4, 3]): contains the control points for the Bezier curve
+            radius (Float):  value for radius of robotic catheter
+            plot_type (0, 1, 2, 3): 
+                0 or anything else = plot nothing
+                1 = plot both
+                2 = plot 2d projection
+                3 = plot 3d model
+        '''
         
-        self.num_samples = 10
-        self.samples_per_circle = 10
+        self.num_samples = 30
+        self.samples_per_circle = 30
         self.cylinder_mesh_points = torch.zeros(self.num_samples, self.samples_per_circle, 3)
         
         #self.num_samples = 200
@@ -777,21 +779,24 @@ class reconstructCurve():
                 binormal_vec_normalized = self.getNormalizedVectors(binormal_vec)
                 self.cylinder_mesh_points[i, j, :] = self.getRandCirclePoint(radius, pos_vec, normal_vec_normalized, binormal_vec_normalized)
     
+                if(plot_type == 1 or plot_type == 3): 
                 # Plot cylinder mesh points
-                self.ax.scatter(pos_vec[0] + self.cylinder_mesh_points[i, j, 0], pos_vec[1] + self.cylinder_mesh_points[i, j, 1], pos_vec[2] + self.cylinder_mesh_points[i, j, 2])
+                    self.ax.scatter(pos_vec[0] + self.cylinder_mesh_points[i, j, 0], pos_vec[1] + self.cylinder_mesh_points[i, j, 1], pos_vec[2] + self.cylinder_mesh_points[i, j, 2])
 
-        self.ax.set_box_aspect([1,1,1]) 
-        self.set_axes_equal(self.ax)
-        plt.show()
+        if(plot_type == 1 or plot_type == 3):
+            self.ax.set_box_aspect([1,1,1]) 
+            self.set_axes_equal(self.ax)
+            plt.show()
 
 
         # self.getSegmentedCircleProjImg(self.cylinder_mesh_points[3, :, :])
         # print("\nself.bezier_proj_img: \n" + str(self.bezier_proj_img))
         # self.draw2DCircleImage()
 
-        # self.getCylinderMeshProjImg(self.cylinder_mesh_points)
-        # print("\nself.bezier_proj_img: \n" + str(self.bezier_proj_img))
-        # self.draw2DCylinderImage()
+        if(plot_type == 1 or plot_type == 2): 
+            self.getCylinderMeshProjImg(self.cylinder_mesh_points)
+            print("\nself.bezier_proj_img: \n" + str(self.bezier_proj_img))
+            self.draw2DCylinderImage()
 
 
 
@@ -846,7 +851,7 @@ if __name__ == '__main__':
     img_save_path = case_naming + '.png'
 
     a.loadRawImage(img_save_path)
-    a.getBezierCurveCylinder(test_control_points2, 0.01)
+    a.getBezierCurveCylinder(test_control_points2, 0.01, 1)
     
 
 
