@@ -1,3 +1,4 @@
+import sys
 import math
 import numpy as np
 import cv2
@@ -5,6 +6,9 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 # mpl.rcParams['figure.figsize'] = [1280, 800]
 # mpl.rcParams['figure.dpi'] = 300
+
+sys.path.insert(1, '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/scripts')
+import camera_settings
 
 import matplotlib.cm as cm
 
@@ -18,7 +22,7 @@ from skimage.morphology import skeletonize
 from shapely.geometry import Point
 from shapely.geometry.polygon import Polygon
 
-from random import random
+from random import random, randrange
 
 import torch
 import torch.nn.functional as F
@@ -108,6 +112,43 @@ class reconstructCurve():
         self.pos_bezier_3D_init = self.getAnyBezierCurve(para_init, self.P0_gt)
 '''
     
+    def __init__(self): 
+        self.fig = plt.figure()
+        self.ax = self.fig.add_subplot(111, projection='3d')
+        self.epsilon = 1e-8
+
+        self.setCameraParams(camera_settings.a, camera_settings.b, camera_settings.center_x, camera_settings.center_y,
+                             camera_settings.image_size_x, camera_settings.image_size_y, camera_settings.extrinsics,
+                             camera_settings.intrinsics)
+
+    def setCameraParams(self, fx, fy, cx, cy, size_x, size_y, camera_extrinsics, camera_intrinsics):
+        """
+        Set intrinsic and extrinsic camera parameters
+
+        Args:
+            fx (float): horizontal direction focal length
+            fy (float): vertical direction focal length
+            cx (float): horizontal center of image
+            cy (float): vertical center of image
+            size_x (int): width of image
+            size_y (int): height of image
+            camera_extrinsics ((4, 4) numpy array): RT matrix 
+            camera_intrinsics ((3, 3) numpy array): K matrix 
+        """
+        self.fx = fx
+        self.fy = fy
+        self.cx = cx
+        self.cy = cy
+        self.size_x = size_x
+        self.size_y = size_y
+        # self.cam_RT_H = torch.as_tensor(camera_extrinsics)
+        self.cam_K = torch.as_tensor(camera_intrinsics)
+
+        # camera E parameters
+        cam_RT_H = torch.tensor([[1., 0., 0., 0.], [0., 1., 0., 0.], [0., 0., 1., 0.], [0., 0., 0., 1.]])
+        invert_y = torch.tensor([[1., 0., 0., 0.], [0., 1., 0., 0.], [0., 0., 1., 0.], [0., 0., 0., 1.]])
+        self.cam_RT_H = torch.matmul(invert_y, cam_RT_H)
+
     def getBezierCurve(self, control_pts):
         """ takes control points as input, calculates positions and 
         derivatives of points along the Bezier curve, converts the 
@@ -175,6 +216,7 @@ class reconstructCurve():
 
         return pos_bezier
 
+    '''
     def getProjPointCam(self, p, cam_K):
         # p is of size R^(Nx3)
         if p.shape == (3, ):
@@ -189,7 +231,8 @@ class reconstructCurve():
         # print(torch.matmul(cam_K, divide_z)[:-1, :])
         # pdb.set_trace()
         return torch.transpose(torch.matmul(cam_K, divide_z)[:-1, :], 0, 1)
-
+    '''
+    
     def isPointInImage(self, p_proj, width, height):
         if torch.all(torch.isnan(p_proj)):
             # print('NaN')
@@ -200,6 +243,9 @@ class reconstructCurve():
 
         return True
 
+###################################################################################################
+###################################################################################################
+###################################################################################################
 
     def set_axes_equal(self, ax: plt.Axes):
         """Set 3D plot axes to equal scale.
@@ -223,6 +269,9 @@ class reconstructCurve():
         ax.set_ylim3d([y - radius, y + radius])
         ax.set_zlim3d([z - radius, z + radius])
 
+###################################################################################################
+###################################################################################################
+###################################################################################################
 
     def getBezierTNB(self, bezier_pos, bezier_der, bezier_snd_der):
 
@@ -233,12 +282,12 @@ class reconstructCurve():
         bezier_normal_numerator_n = torch.mul(
             bezier_der_n, torch.linalg.norm(torch.linalg.cross(bezier_snd_der, bezier_der), ord=2, dim=1))
 
-        bezier_normal = bezier_normal_numerator / torch.unsqueeze(bezier_normal_numerator_n, dim=1)
+        bezier_normal = bezier_normal_numerator / (torch.unsqueeze(bezier_normal_numerator_n, dim=1) + self.epsilon)
 
         bezier_binormal_numerator = torch.linalg.cross(bezier_der, bezier_snd_der)
         bezier_binormal_numerator_n = torch.linalg.norm(bezier_binormal_numerator, ord=2, dim=1)
 
-        bezier_binormal = bezier_binormal_numerator / torch.unsqueeze(bezier_binormal_numerator_n, dim=1)
+        bezier_binormal = bezier_binormal_numerator / (torch.unsqueeze(bezier_binormal_numerator_n, dim=1) + self.epsilon)
 
         print("bezier_normal: " + str(bezier_normal))
         print("bezier_binormal" + str(bezier_binormal))
@@ -256,7 +305,7 @@ class reconstructCurve():
         bezier_normal_numerator_n = torch.mul(
             bezier_der_n, torch.linalg.norm(torch.linalg.cross(bezier_snd_der, bezier_der), ord=2, dim=1))
 
-        bezier_normal = bezier_normal_numerator / torch.unsqueeze(bezier_normal_numerator_n, dim=1)
+        bezier_normal = bezier_normal_numerator / (torch.unsqueeze(bezier_normal_numerator_n, dim=1) + self.epsilon)
 
         # print("bezier_normal: " + str(bezier_normal))
 
@@ -269,7 +318,7 @@ class reconstructCurve():
         bezier_binormal_numerator = torch.linalg.cross(bezier_der, bezier_snd_der)
         bezier_binormal_numerator_n = torch.linalg.norm(bezier_binormal_numerator, ord=2, dim=1)
 
-        bezier_binormal = bezier_binormal_numerator / torch.unsqueeze(bezier_binormal_numerator_n, dim=1)
+        bezier_binormal = bezier_binormal_numerator / (torch.unsqueeze(bezier_binormal_numerator_n, dim=1) + self.epsilon)
 
         # print("bezier_binormal" + str(bezier_binormal))
 
@@ -278,13 +327,20 @@ class reconstructCurve():
 
         return bezier_binormal
 
+###################################################################################################
+###################################################################################################
+###################################################################################################
 
     def getNormalizedVectors(self, set_of_vectors): 
         '''
         Method to get the normalized version of a set of vectors (of the shape: (num_samples, 3)). 
         Calculates the L2 norm (cartesian magnitude) of each vector and divides by it. 
+        When vector norm is zero, dividing the vector by its norm will result in NaN values 
+        because division by zero is mathematically undefined. To avoid NaN values, add a small epsilon 
+        value to the denominator before performing the division. 
+        This will prevent division by exactly zero and keep the vectors valid. 
         '''
-        normalized_set_of_vectors = set_of_vectors / torch.linalg.norm(set_of_vectors, ord=2, dim=0)
+        normalized_set_of_vectors = set_of_vectors / (torch.linalg.norm(set_of_vectors, ord=2, dim=0) + self.epsilon)
         return normalized_set_of_vectors
 
     def getTranslatedVectors(self, pos_bezier, set_of_vectors): 
@@ -294,7 +350,6 @@ class reconstructCurve():
         '''
         translated_set_of_vectors = pos_bezier + set_of_vectors
         return translated_set_of_vectors
-
 
     def getRandCirclePoint(self, radius, center_point, normal_vec, binormal_vec): 
         '''
@@ -313,12 +368,362 @@ class reconstructCurve():
 
         return rand_circle_point
 
+    def plot3dPoints(self, show_vector_lines, plot_bezier_points, pos_bezier, set_of_vectors=None): 
+        '''
+        Method to plot Bezier vectors using MatPlotLib
 
-    def getBezierCurveCylinder(self, control_pts, radius): 
+        Args: 
+            pos_bezier (Tensor): Points along Bezier curve
+            set_of_vectors (Tensor): Vectors (tangent, normal, binormal) along Bezier curve
+            show_vector_lines (boolean): Boolean to show vector line between vector initial and terminal points
+            plot_bezier_points (boolean): Boolean to plot points along Bezier curve
+        '''
+        # print("INSIDE pos_bezier: " + str(pos_bezier))
+        # print("INSIDE set_of_vectors: " + str(set_of_vectors))
+
+        # Only plot points along Bezier curve. No vector lines
+        if plot_bezier_points is True and set_of_vectors is None and show_vector_lines is False: 
+            for point in pos_bezier: 
+                self.ax.scatter(point[0], point[1], point[2])
+
+        # Only plot vector points. No vector lines
+        elif plot_bezier_points is False and set_of_vectors is not None and show_vector_lines is False: 
+            vec_normalized = self.getNormalizedVectors(set_of_vectors)
+            vec_normalized_translated = self.getTranslatedVectors(pos_bezier, vec_normalized)
+
+            for vec in vec_normalized_translated: 
+                self.ax.scatter(vec[0], vec[1], vec[2])
+
+        # Only plot vectors points. Show vector lines
+        elif plot_bezier_points is False and set_of_vectors is not None and show_vector_lines is True:
+            vec_normalized = self.getNormalizedVectors(set_of_vectors)
+            vec_normalized_translated = self.getTranslatedVectors(pos_bezier, vec_normalized)
+            
+            for pos_vec, vec in zip(pos_bezier, vec_normalized_translated): 
+                self.ax.scatter(vec[0], vec[1], vec[2])
+                self.ax.plot([pos_vec[0], vec[0]], [pos_vec[1], vec[1]], [pos_vec[2], vec[2]])
+
+        # Plot points along Bezier curve and vectors points. No vector lines
+        elif plot_bezier_points is True and set_of_vectors is not None and show_vector_lines is False: 
+            vec_normalized = self.getNormalizedVectors(set_of_vectors)
+            vec_normalized_translated = self.getTranslatedVectors(pos_bezier, vec_normalized)
+
+            for point, vec in zip(pos_bezier, vec_normalized_translated): 
+                self.ax.scatter(point[0], point[1], point[2])
+                self.ax.scatter(vec[0], vec[1], vec[2])
+
+        # Plot points along Bezier curve and vectors points. Show vector lines
+        elif plot_bezier_points is True and  set_of_vectors is not None and show_vector_lines is True: 
+            vec_normalized = self.getNormalizedVectors(set_of_vectors)
+            vec_normalized_translated = self.getTranslatedVectors(pos_bezier, vec_normalized)
+
+            for point, vec in zip(pos_bezier, vec_normalized_translated): 
+                self.ax.scatter(point[0], point[1], point[2])
+                self.ax.scatter(vec[0], vec[1], vec[2])
+                self.ax.plot([pos_vec[0], vec[0]], [pos_vec[1], vec[1]], [pos_vec[2], vec[2]])
+
+###################################################################################################
+###################################################################################################
+###################################################################################################
+# FROM diff-render directory: 
+
+    def loadRawImage(self, img_path):
+        raw_img_rgb = cv2.imread(img_path)
+        self.img_ownscale = 1.0
+        self.raw_img_rgb = cv2.resize(
+            raw_img_rgb, (int(raw_img_rgb.shape[1] / self.img_ownscale), int(raw_img_rgb.shape[0] / self.img_ownscale)))
+        self.raw_img_gray = cv2.cvtColor(raw_img_rgb, cv2.COLOR_RGB2GRAY)
+
+    def getBezierProjImg(self, pos_bezier, der_bezier, double_der_bezier):
+        '''
+        Convert positions, tangents, normals to camera frame
+        '''
+
+        # TODO: convert 3d world cyinder mesh points to camera frame
+
+        # Convert 3D world position to camera frame
+        pos_bezier_H = torch.cat((pos_bezier, torch.ones(self.num_samples, 1)), dim=1)
+
+        bezier_pos_cam_H = torch.transpose(torch.matmul(self.cam_RT_H, torch.transpose(pos_bezier_H, 0, 1)), 0, 1)
+        # self.bezier_pos_cam = bezier_pos_cam_H[1:, :-1]  ## without including the first point
+        self.bezier_pos_cam = bezier_pos_cam_H[:, :-1]
+
+
+        # Convert 3D world first derivative to camera frame
+        der_bezier_H = torch.cat((der_bezier, torch.zeros((self.num_samples, 1))), dim=1)
+        bezier_der_cam_H = torch.transpose(torch.matmul(self.cam_RT_H, torch.transpose(der_bezier_H[1:, :], 0, 1)), 0,
+                                           1)
+        self.bezier_der_cam = bezier_der_cam_H[:, :-1]
+
+                
+        # Convert 3D world second derivative to camera frame
+        der_snd_bezier_H = torch.cat((double_der_bezier, torch.zeros((self.num_samples, 1))), dim=1)
+        bezier_snd_der_cam_H = torch.transpose(
+            torch.matmul(self.cam_RT_H, torch.transpose(der_snd_bezier_H[1:, :], 0, 1)), 0, 1)
+        self.bezier_snd_der_cam = bezier_snd_der_cam_H[:, :-1]
+
+
+        self.bezier_proj_img = self.getProjPointCam(self.bezier_pos_cam[1:], self.cam_K)
+    
+    def getProjPointCam(self, p, cam_K):
+        # p is of size R^(Nx3)
+        if p.shape == (3, ):
+            p = torch.unsqueeze(p, dim=0)
+
+        print("\n p[:, :-1] shape: " + str(p[:, :-1].size()))
+        print("\n p[:, :-1]: \n" + str(p[:, :-1]))
+
+        print("\n p[:, -1] shape: " + str(p[:, -1].size()))
+        print("\n p[:, -1]: \n" + str(p[:, -1]))
         
-        self.num_samples = 15
-        self.points_per_circle = 15
-        self.cylinder_mesh_points = torch.zeros(self.num_samples, self.points_per_circle, 3)
+        divide_z = torch.div(torch.transpose(p[:, :-1], 0, 1), p[:, -1])
+        print("\n divide_z 1 shape: " + str(divide_z.size()))
+        print("\n divide_z 1: \n" + str(divide_z))
+
+        print("\n p.shape[0]: " + str(p.shape[0]))
+        divide_z = torch.cat((divide_z, torch.ones(1, p.shape[0])), dim=0).double()
+        print("\n divide_z 2 shape: " + str(divide_z.size()))
+        print("\n divide_z 2: \n" + str(divide_z))
+
+        return torch.transpose(torch.matmul(cam_K, divide_z)[:-1, :], 0, 1)
+
+    def draw2DCenterlineImage(self):
+
+        ## numpy copy
+        centerline_draw_img_rgb = self.raw_img_rgb.copy()
+
+        ## torch clone
+        bezier_proj_img = torch.clone(self.bezier_proj_img)
+
+        # Draw centerline
+        for i in range(bezier_proj_img.shape[0] - 1):
+            # if not self.isPointInImage(bezier_proj_img[i, :], centerline_draw_img_rgb.shape[1], centerline_draw_img_rgb.shape[0]):
+            #     continue
+            # if not self.isPointInImage(bezier_proj_img[i + 1, :], centerline_draw_img_rgb.shape[1], centerline_draw_img_rgb.shape[0]):
+            #     continue
+
+            p1 = (int(bezier_proj_img[i, 0]), int(bezier_proj_img[i, 1]))
+            p2 = (int(bezier_proj_img[i + 1, 0]), int(bezier_proj_img[i + 1, 1]))
+            cv2.line(centerline_draw_img_rgb, p1, p2, (0, 100, 255), 1)
+
+        # Draw tangent lines every few to check they are correct
+        show_every_so_many_samples = 10
+        l = 0.1
+        tangent_draw_img_rgb = centerline_draw_img_rgb.copy()
+        for i, p in enumerate(bezier_proj_img):
+            if i % show_every_so_many_samples != 0:
+                continue
+
+            # if not self.isPointInImage(p, tangent_draw_img_rgb.shape[1], tangent_draw_img_rgb.shape[0]):
+            #     continue
+
+            p_d = self.getProjPointCam(
+                self.bezier_pos_cam[i] + l * self.bezier_der_cam[i] / torch.linalg.norm(self.bezier_der_cam[i]),
+                self.cam_K)[0]
+
+            # if not self.isPointInImage(p_d, tangent_draw_img_rgb.shape[1], tangent_draw_img_rgb.shape[0]):
+            #     continue
+
+            # print('Out')
+            tangent_draw_img_rgb = cv2.line(tangent_draw_img_rgb, (int(p[0]), int(p[1])), (int(p_d[0]), int(p_d[1])),
+                                            (0.0, 0.0, 255.0), 1)
+
+        # ---------------
+        # plot with
+        # ---------------
+        fig, axes = plt.subplots(1, 2, figsize=(15, 5))
+        ax = axes.ravel()
+
+        ax[0].imshow(cv2.cvtColor(centerline_draw_img_rgb, cv2.COLOR_BGR2RGB))
+        ax[0].set_title('2d centerline')
+
+        ax[1].imshow(cv2.cvtColor(tangent_draw_img_rgb, cv2.COLOR_BGR2RGB))
+        ax[1].set_title('2d tangents')
+
+        # ax[2].imshow(cv2.cvtColor(cylinder_draw_img_rgb, cv2.COLOR_BGR2RGB))
+        # ax[2].set_title('Projected cylinders')
+
+        plt.tight_layout()
+        plt.show()
+
+        # cv2.imwrite('./gradient_steps_imgs/centerline_draw_img_rgb_' + str(self.GD_Iteration) + '.jpg', centerline_draw_img_rgb)
+        # cv2.imwrite('./gradient_steps_imgs/tangent_draw_img_rgb_' + str(self.GD_Iteration) + '.jpg', tangent_draw_img_rgb)
+
+        return centerline_draw_img_rgb, tangent_draw_img_rgb
+
+###################################################################################################
+###################################################################################################
+###################################################################################################
+# MY CODE project 3d model -> 2d image
+
+    def getSegmentedCircleProjImg(self, segmented_circle): 
+         # Convert 3D world position to camera frame
+        pos_bezier_H = torch.cat((segmented_circle, torch.ones(self.num_samples, 1)), dim=1)
+        print("\n pos_bezier_H shape: " + str(pos_bezier_H.size()))
+        print("\n pos_bezier_H: \n" + str(pos_bezier_H))
+
+        bezier_pos_cam_H = torch.transpose(torch.matmul(self.cam_RT_H, torch.transpose(pos_bezier_H, 0, 1)), 0, 1)
+        print("\n bezier_pos_cam_H shape: " + str(bezier_pos_cam_H.size()))
+        print("\n bezier_pos_cam_H: \n" + str(bezier_pos_cam_H))
+        # self.bezier_pos_cam = bezier_pos_cam_H[1:, :-1]  ## without including the first point
+        self.bezier_pos_cam = bezier_pos_cam_H[:, :-1]
+        print("\n self.bezier_pos_cam shape: " + str(self.bezier_pos_cam.size()))
+        print("\n self.bezier_pos_cam: \n" + str(self.bezier_pos_cam))
+
+        self.bezier_proj_img = self.getProjPointCam(self.bezier_pos_cam[1:], self.cam_K)
+        print("\n self.bezier_proj_img shape: " + str(self.bezier_proj_img.size()))
+        print("\n self.bezier_proj_img: \n" + str(self.bezier_proj_img))
+
+    def draw2DCircleImage(self): 
+        ## numpy copy
+        segmented_circle_draw_img_rgb = self.raw_img_rgb.copy()
+
+        ## torch clone
+        bezier_proj_img = torch.clone(self.bezier_proj_img)
+
+        # Draw circle segment
+        for i in range(bezier_proj_img.shape[0] - 1):
+            # if not self.isPointInImage(bezier_proj_img[i, :], centerline_draw_img_rgb.shape[1], centerline_draw_img_rgb.shape[0]):
+            #     continue
+            # if not self.isPointInImage(bezier_proj_img[i + 1, :], centerline_draw_img_rgb.shape[1], centerline_draw_img_rgb.shape[0]):
+            #     continue
+
+            p1 = (int(bezier_proj_img[i, 0]), int(bezier_proj_img[i, 1]))
+            cv2.circle(segmented_circle_draw_img_rgb, p1, 1, (0, 100, 255), -1)
+        
+
+        # ---------------
+        # plot with
+        # ---------------
+        fig, axes = plt.subplots(1, 2, figsize=(15, 5))
+        ax = axes.ravel()
+
+        ax[0].imshow(cv2.cvtColor(segmented_circle_draw_img_rgb, cv2.COLOR_BGR2RGB))
+        ax[0].set_title('2d Circle Segment')
+
+        # ax[1].imshow(cv2.cvtColor(tangent_draw_img_rgb, cv2.COLOR_BGR2RGB))
+        # ax[1].set_title('2d tangents')
+
+        # ax[2].imshow(cv2.cvtColor(cylinder_draw_img_rgb, cv2.COLOR_BGR2RGB))
+        # ax[2].set_title('Projected cylinders')
+
+        plt.tight_layout()
+        plt.show()
+
+        # cv2.imwrite('./gradient_steps_imgs/centerline_draw_img_rgb_' + str(self.GD_Iteration) + '.jpg', centerline_draw_img_rgb)
+        # cv2.imwrite('./gradient_steps_imgs/tangent_draw_img_rgb_' + str(self.GD_Iteration) + '.jpg', tangent_draw_img_rgb)
+
+        # return centerline_draw_img_rgb, tangent_draw_img_rgb
+        return segmented_circle_draw_img_rgb
+
+
+    def getCylinderMeshProjImg(self, cylinder_mesh): 
+        print("\n cylinder_mesh shape: " + str(cylinder_mesh.size()))
+        print("\n cylinder_mesh: \n" + str(cylinder_mesh))
+
+        # Convert 3D world position to camera frame
+        pos_bezier_H = torch.cat((cylinder_mesh, torch.ones(self.num_samples, self.samples_per_circle, 1)), dim=2)
+        print("\n pos_bezier_H shape: " + str(pos_bezier_H.size()))
+        print("\n pos_bezier_H: \n" + str(pos_bezier_H))
+
+        bezier_pos_cam_H = torch.transpose(torch.matmul(self.cam_RT_H, torch.transpose(pos_bezier_H, 1, 2)), 1, 2)
+        print("\n bezier_pos_cam_H shape: " + str(bezier_pos_cam_H.size()))
+        print("\n bezier_pos_cam_H: \n" + str(bezier_pos_cam_H))
+
+        # self.bezier_pos_cam = bezier_pos_cam_H[1:, :-1]  ## without including the first point
+
+        self.bezier_pos_cam = bezier_pos_cam_H[:, :, :-1]
+        print("\n self.bezier_pos_cam shape: " + str(self.bezier_pos_cam.size()))
+        print("\n self.bezier_pos_cam: \n" + str(self.bezier_pos_cam))
+
+        print("\n self.bezier_pos_cam[:, 1:, :] shape: " + str(self.bezier_pos_cam[:, 1:, :].size()))
+        print("\n self.bezier_pos_cam[:, 1:, :]: \n" + str(self.bezier_pos_cam[:, 1:, :]))
+
+        self.bezier_proj_img = self.getProjCylPointCam(self.bezier_pos_cam[:, 1:, :], self.cam_K)
+        # print("\n self.bezier_proj_img shape: " + str(self.bezier_proj_img.size()))
+        # print("\n self.bezier_proj_img: " + str(self.bezier_proj_img))
+
+    def getProjCylPointCam(self, p, cam_K): 
+        # p is of size R^(Nx3)
+        if p.shape == (self.num_samples, 3):
+            p = torch.unsqueeze(p, dim=1)
+
+        print("\n p[:, :, :-1] shape: " + str(p[:, :, :-1].size()))
+        print("\n p[:, :, :-1]: \n" + str(p[:, :, :-1]))
+
+        print("\n torch.unsqueeze((p[:, :, -1]), dim=1) shape: " + str(torch.unsqueeze((p[:, :, -1]), dim=1).size()))
+        print("\n torch.unsqueeze((p[:, :, -1]), dim=1): \n" + str(torch.unsqueeze((p[:, :, -1]), dim=1)))
+
+        divide_z = torch.div(torch.transpose(p[:, :, :-1], 1, 2), torch.unsqueeze((p[:, :, -1]), dim=1))
+        print("\n divide_z 1 shape: " + str(divide_z.size()))
+        print("\n divide_z 1: \n" + str(divide_z))
+
+        print("\n p.shape[0]: " + str(p.shape[0]))
+        divide_z = torch.cat((divide_z, torch.ones(self.num_samples, 1, p.shape[1])), dim=1).double()
+        print("\n divide_z 2 shape: " + str(divide_z.size()))
+        print("\n divide_z 2: " + str(divide_z))
+
+        return torch.transpose(torch.matmul(cam_K, divide_z)[:, :-1, :], 1, 2)
+    
+    def draw2DCylinderImage(self): 
+        ## numpy copy
+        segmented_circle_draw_img_rgb = self.raw_img_rgb.copy()
+
+        ## torch clone
+        bezier_proj_img = torch.clone(self.bezier_proj_img)
+
+        # Draw circle segment
+        for j in range(bezier_proj_img.shape[0] - 1): 
+            red_val = randrange(0, 255)
+            green_val = randrange(0, 255)
+            blue_val = randrange(0, 255)
+
+            for i in range(bezier_proj_img.shape[1] - 1):
+                # if not self.isPointInImage(bezier_proj_img[i, :], centerline_draw_img_rgb.shape[1], centerline_draw_img_rgb.shape[0]):
+                #     continue
+                # if not self.isPointInImage(bezier_proj_img[i + 1, :], centerline_draw_img_rgb.shape[1], centerline_draw_img_rgb.shape[0]):
+                #     continue
+
+                p1 = (int(bezier_proj_img[j, i, 0]), int(bezier_proj_img[j, i, 1]))
+                # cv2.circle(segmented_circle_draw_img_rgb, p1, 1, (0, 100, 255), -1)
+                cv2.circle(segmented_circle_draw_img_rgb, p1, 1, (red_val, green_val, blue_val), -1)
+        
+
+        # ---------------
+        # plot with
+        # ---------------
+        fig, ax = plt.subplots(figsize=(8, 5))
+
+        ax.imshow(cv2.cvtColor(segmented_circle_draw_img_rgb, cv2.COLOR_BGR2RGB))
+        ax.set_title('2D Bezier Cylinder Mesh')
+
+        plt.tight_layout()
+        plt.show()
+
+        return segmented_circle_draw_img_rgb       
+    
+###################################################################################################
+###################################################################################################
+###################################################################################################
+
+    def getBezierCurveCylinder(self, control_pts, radius, plot_type): 
+        '''
+        Method to obtain bezier curve position, tangents, normals, and binormals. 
+        Calls helper methods to plot these vectors. 
+
+        Args: 
+            control_pts (tensor of shape [4, 3]): contains the control points for the Bezier curve
+            radius (Float):  value for radius of robotic catheter
+            plot_type (0, 1, 2, 3): 
+                0 or anything else = plot nothing
+                1 = plot both
+                2 = plot 2d projection
+                3 = plot 3d model
+        '''
+        
+        self.num_samples = 30
+        self.samples_per_circle = 30
+        self.cylinder_mesh_points = torch.zeros(self.num_samples, self.samples_per_circle, 3)
         
         #self.num_samples = 200
         P0 = control_pts[0, :]
@@ -346,108 +751,107 @@ class reconstructCurve():
         normal_bezier = self.getBezierNormal(der_bezier, double_der_bezier)
         binormal_bezier = self.getBezierBinormal(der_bezier, double_der_bezier)     
 
-        # print("pos_bezier: " + str(pos_bezier))
-        # print("normal_bezier: " + str(normal_bezier))
-        # print("binormal_bezier: " + str(binormal_bezier))
-
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')
-
-        # Plot TNB frames for all samples along bezier curve
-        for pos_vec, tan_vec, normal_vec, binormal_vec  in zip(pos_bezier, der_bezier, normal_bezier, binormal_bezier): 
-
-            # A set of vectors are mutually orthogonal if every pair of vectors is orthogonal (DP = 0)
-            # print("tan . normal = " + str(torch.dot(tan_vec, normal_vec)))
-            # print("tan . binormal = " + str(torch.dot(tan_vec, binormal_vec)))
-            # print("normal . binormal = " + str(torch.dot(normal_vec, binormal_vec)))
-            # print('\n')
-
-            tan_vec_normalized = self.getNormalizedVectors(tan_vec)
-            normal_vec__normalized = self.getNormalizedVectors(normal_vec)
-            binormal_vec_normalized = self.getNormalizedVectors(binormal_vec)
-
-            # print("tan_vec_normalized: " + str(tan_vec_normalized))
-            # print("normal_vec__normalized" + str(normal_vec__normalized))
-            # print("binormal_vec_normalized" + str(binormal_vec_normalized))
-            
-            # Points along Bezier curve
-            # ax.scatter(pos_vec[0], pos_vec[1], pos_vec[2])
-
-            # Tangents along Bezier curve
-            # ax.scatter(pos_vec[0] + tan_vec_normalized[0], pos_vec[1] + tan_vec_normalized[1], pos_vec[2] + tan_vec_normalized[2])
-            # ax.plot([pos_vec[0], pos_vec[0]+ tan_vec_normalized[0]], [pos_vec[1], pos_vec[1]+ tan_vec_normalized[1]], [pos_vec[2], pos_vec[2]+ tan_vec_normalized[2]])
-
-            # Normals along Bezier curve
-            # ax.scatter(pos_vec[0] + normal_vec__normalized[0], pos_vec[1] + normal_vec__normalized[1], pos_vec[2] + normal_vec__normalized[2])
-            # ax.plot([pos_vec[0], pos_vec[0]+ normal_vec__normalized[0]], [pos_vec[1], pos_vec[1]+ normal_vec__normalized[1]], [pos_vec[2], pos_vec[2]+ normal_vec__normalized[2]])
-
-            # Binormals along Bezier curve
-            # ax.scatter(pos_vec[0] + binormal_vec_normalized[0], pos_vec[1] + binormal_vec_normalized[1], pos_vec[2] + binormal_vec_normalized[2])
-            # ax.plot([pos_vec[0], pos_vec[0]+ binormal_vec_normalized[0]], [pos_vec[1], pos_vec[1]+ binormal_vec_normalized[1]], [pos_vec[2], pos_vec[2]+ binormal_vec_normalized[2]])
-            
-        # Plot Bezier curve points
-        # for point in pos_bezier: 
-        #     ax.scatter(point[0], point[1], point[2])
-
-    
-        # Plot Bezier curve points & tangent vectors. 
-        # USE TRANSLATED DERIVATIVE VECTORS such that they start at their corresponding point
-        # for point, tan_vector in zip(pos_bezier, trans_unit_der_bezier): 
-        #     ax.scatter(point[0], point[1], point[2])
-        #     ax.scatter(tan_vector[0], tan_vector[1], tan_vector[2])
-        #     ax.plot([point[0], tan_vector[0]], [point[1], tan_vector[1]], [point[2], tan_vector[2]])
-
-
-        # Plot Bezier curve points & normal vectors.
-        # for point, norm_vector in zip(pos_bezier, normal_bezier): 
-        #     ax.scatter(point[0], point[1], point[2])
-        #     ax.scatter(norm_vector[0], norm_vector[1], norm_vector[2])
-        #     ax.plot([point[0], norm_vector[0]], [point[1], norm_vector[1]], [point[2], norm_vector[2]])
+        '''
+        print("OG VECTORS")
+        print("pos_bezier: " + str(pos_bezier))
+        print("normal_bezier: " + str(normal_bezier))
+        print("binormal_bezier: " + str(binormal_bezier))
+        '''
         
 
+        # Plot TNB frames for all samples along bezier curve
+        '''
+        # Plot points along Bezier curve
+        self.plot3dPoints(False, True, pos_bezier)
+        # Plot tangents along Bezier curve
+        self.plot3dPoints(True, False, pos_bezier, der_bezier)
+        # Plot normals along Bezier curve
+        self.plot3dPoints(True, False, pos_bezier, normal_bezier)
+        # Plot binormals along Bezier curve
+        self.plot3dPoints(True, False, pos_bezier, binormal_bezier)
+        '''
+        
+
+        # Get Cylinder mesh points
         for i, (pos_vec, normal_vec, binormal_vec) in enumerate(zip(pos_bezier, normal_bezier, binormal_bezier)): 
-            for j in range(self.points_per_circle): 
+            for j in range(self.samples_per_circle): 
                 normal_vec_normalized = self.getNormalizedVectors(normal_vec)
                 binormal_vec_normalized = self.getNormalizedVectors(binormal_vec)
                 self.cylinder_mesh_points[i, j, :] = self.getRandCirclePoint(radius, pos_vec, normal_vec_normalized, binormal_vec_normalized)
     
+                if(plot_type == 1 or plot_type == 3): 
                 # Plot cylinder mesh points
-                ax.scatter(pos_vec[0] + self.cylinder_mesh_points[i, j, 0], pos_vec[1] + self.cylinder_mesh_points[i, j, 1], pos_vec[2] + self.cylinder_mesh_points[i, j, 2])
+                    self.ax.scatter(pos_vec[0] + self.cylinder_mesh_points[i, j, 0], pos_vec[1] + self.cylinder_mesh_points[i, j, 1], pos_vec[2] + self.cylinder_mesh_points[i, j, 2])
+
+        if(plot_type == 1 or plot_type == 3):
+            self.ax.set_box_aspect([1,1,1]) 
+            self.set_axes_equal(self.ax)
+            plt.show()
 
 
-        ax.set_box_aspect([1,1,1]) 
-        self.set_axes_equal(ax)
-        plt.show()
+        # self.getSegmentedCircleProjImg(self.cylinder_mesh_points[3, :, :])
+        # print("\nself.bezier_proj_img: \n" + str(self.bezier_proj_img))
+        # self.draw2DCircleImage()
+
+        if(plot_type == 1 or plot_type == 2): 
+            self.getCylinderMeshProjImg(self.cylinder_mesh_points)
+            print("\nself.bezier_proj_img: \n" + str(self.bezier_proj_img))
+            self.draw2DCylinderImage()
 
 
 
+###################################################################################################
+###################################################################################################
+###################################################################################################
+###################################################################################################
+###################################################################################################
 
-a = reconstructCurve()
-test_control_points1 = torch.tensor([[0., 0., 0.], 
-                                    [0., 1., 2.5], 
-                                    [0., 2., 0.5], 
-                                    [0., 3., 3.]])
+if __name__ == '__main__': 
 
-test_control_points2 = torch.tensor([[0., 0., 0.], 
-                                    [2., 0.5, 2.5], 
-                                    [-2., 2., 0.5], 
-                                    [0., 3., 3.]])
+    test_control_points1 = torch.tensor([[0., 0., 0.], 
+                                        [0., 1., 2.5], 
+                                        [0., 2., 0.5], 
+                                        [0., 3., 3.]])
+    
+    # Will produce curve in image: 
+    test_control_points2 = torch.tensor([[0.02, 0.002, 0.0], 
+                                        [0.01958988, 0.00195899, 0.09690406], 
+                                        [0.1, 0.03, 0.3], 
+                                        [-0.03142905, -0.0031429, 0.18200866]])
+    
+    test_control_points3 = torch.tensor([[0., 0., 0.], 
+                                        [0.02, 0.005, 0.025], 
+                                        [-0.02, 0.02, 0.005], 
+                                        [0., 0.03, 0.03]])
 
-test_control_points3 = torch.tensor([[0., 0., 0.], 
-                                    [20., 5., 25.], 
-                                    [-20., 20., 5.], 
-                                    [0., 30., 30.]])
+    test_control_points4 = torch.tensor([[0., 0., 0.], 
+                                        [2., 0.5, 2.5], 
+                                        [-2., 2., 0.5], 
+                                        [0., 3., 3.]])
 
-test_control_points4 = torch.tensor([[0., 0., 0.], 
-                                    [5., 5., 5.], 
-                                    [10., 10., 10.], 
-                                    [15., 15., 15.]])
+    test_control_points5 = torch.tensor([[0., 0., 0.], 
+                                        [20., 5., 25.], 
+                                        [-20., 20., 5.], 
+                                        [0., 30., 30.]])
 
-test_control_points5 = torch.tensor([[[0., 0., 0.], 
-                                    [5., 5., 5.], 
-                                    [10., 10., 10.], 
-                                    [15., 15., 15.], 
-                                    [15., 15., 15.]]])
+    test_control_points6 = torch.tensor([[0., 0., 0.], 
+                                        [5., 5., 5.], 
+                                        [10., 10., 10.], 
+                                        [15., 15., 15.]])
+
+    test_control_points7 = torch.tensor([[[0., 0., 0.], 
+                                        [5., 5., 5.], 
+                                        [10., 10., 10.], 
+                                        [15., 15., 15.], 
+                                        [15., 15., 15.]]])
+
+    a = reconstructCurve()
+
+    case_naming = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/scripts/diff_render/blender_imgs/diff_render_1'
+    img_save_path = case_naming + '.png'
+
+    a.loadRawImage(img_save_path)
+    a.getBezierCurveCylinder(test_control_points2, 0.01, 1)
+    
 
 
-a.getBezierCurveCylinder(test_control_points3, 10)
