@@ -141,7 +141,7 @@ class reconstructCurve():
         self.cy = cy
         self.size_x = size_x
         self.size_y = size_y
-        # self.cam_RT_H = torch.as_tensor(camera_extrinsics)
+        # self.cam_RT_H = torch.as_tensor(camera_extrinsics).float()
         self.cam_K = torch.as_tensor(camera_intrinsics)
 
         # camera E parameters
@@ -559,20 +559,20 @@ class reconstructCurve():
     def getSegmentedCircleProjImg(self, segmented_circle): 
          # Convert 3D world position to camera frame
         pos_bezier_H = torch.cat((segmented_circle, torch.ones(self.num_samples, 1)), dim=1)
-        print("\n pos_bezier_H shape: " + str(pos_bezier_H.size()))
-        print("\n pos_bezier_H: \n" + str(pos_bezier_H))
+        # print("\n pos_bezier_H shape: " + str(pos_bezier_H.size()))
+        # print("\n pos_bezier_H: \n" + str(pos_bezier_H))
 
         bezier_pos_cam_H = torch.transpose(torch.matmul(self.cam_RT_H, torch.transpose(pos_bezier_H, 0, 1)), 0, 1)
-        print("\n bezier_pos_cam_H shape: " + str(bezier_pos_cam_H.size()))
-        print("\n bezier_pos_cam_H: \n" + str(bezier_pos_cam_H))
+        # print("\n bezier_pos_cam_H shape: " + str(bezier_pos_cam_H.size()))
+        # print("\n bezier_pos_cam_H: \n" + str(bezier_pos_cam_H))
         # self.bezier_pos_cam = bezier_pos_cam_H[1:, :-1]  ## without including the first point
         self.bezier_pos_cam = bezier_pos_cam_H[:, :-1]
-        print("\n self.bezier_pos_cam shape: " + str(self.bezier_pos_cam.size()))
-        print("\n self.bezier_pos_cam: \n" + str(self.bezier_pos_cam))
+        # print("\n self.bezier_pos_cam shape: " + str(self.bezier_pos_cam.size()))
+        # print("\n self.bezier_pos_cam: \n" + str(self.bezier_pos_cam))
 
         self.bezier_proj_img = self.getProjPointCam(self.bezier_pos_cam[1:], self.cam_K)
-        print("\n self.bezier_proj_img shape: " + str(self.bezier_proj_img.size()))
-        print("\n self.bezier_proj_img: \n" + str(self.bezier_proj_img))
+        # print("\n self.bezier_proj_img shape: " + str(self.bezier_proj_img.size()))
+        # print("\n self.bezier_proj_img: \n" + str(self.bezier_proj_img))
 
     def draw2DCircleImage(self): 
         ## numpy copy
@@ -618,26 +618,26 @@ class reconstructCurve():
 
 
     def getCylinderMeshProjImg(self, cylinder_mesh): 
-        print("\n cylinder_mesh shape: " + str(cylinder_mesh.size()))
-        print("\n cylinder_mesh: \n" + str(cylinder_mesh))
+        # print("\n cylinder_mesh shape: " + str(cylinder_mesh.size()))
+        # print("\n cylinder_mesh: \n" + str(cylinder_mesh))
 
         # Convert 3D world position to camera frame
         pos_bezier_H = torch.cat((cylinder_mesh, torch.ones(self.num_samples, self.samples_per_circle, 1)), dim=2)
-        print("\n pos_bezier_H shape: " + str(pos_bezier_H.size()))
-        print("\n pos_bezier_H: \n" + str(pos_bezier_H))
+        # print("\n pos_bezier_H shape: " + str(pos_bezier_H.size()))
+        # print("\n pos_bezier_H: \n" + str(pos_bezier_H))
 
         bezier_pos_cam_H = torch.transpose(torch.matmul(self.cam_RT_H, torch.transpose(pos_bezier_H, 1, 2)), 1, 2)
-        print("\n bezier_pos_cam_H shape: " + str(bezier_pos_cam_H.size()))
-        print("\n bezier_pos_cam_H: \n" + str(bezier_pos_cam_H))
+        # print("\n bezier_pos_cam_H shape: " + str(bezier_pos_cam_H.size()))
+        # print("\n bezier_pos_cam_H: \n" + str(bezier_pos_cam_H))
 
         # self.bezier_pos_cam = bezier_pos_cam_H[1:, :-1]  ## without including the first point
 
         self.bezier_pos_cam = bezier_pos_cam_H[:, :, :-1]
-        print("\n self.bezier_pos_cam shape: " + str(self.bezier_pos_cam.size()))
-        print("\n self.bezier_pos_cam: \n" + str(self.bezier_pos_cam))
+        # print("\n self.bezier_pos_cam shape: " + str(self.bezier_pos_cam.size()))
+        # print("\n self.bezier_pos_cam: \n" + str(self.bezier_pos_cam))
 
-        print("\n self.bezier_pos_cam[:, 1:, :] shape: " + str(self.bezier_pos_cam[:, 1:, :].size()))
-        print("\n self.bezier_pos_cam[:, 1:, :]: \n" + str(self.bezier_pos_cam[:, 1:, :]))
+        # print("\n self.bezier_pos_cam[:, 1:, :] shape: " + str(self.bezier_pos_cam[:, 1:, :].size()))
+        # print("\n self.bezier_pos_cam[:, 1:, :]: \n" + str(self.bezier_pos_cam[:, 1:, :]))
 
         self.bezier_proj_img = self.getProjCylPointCam(self.bezier_pos_cam[:, 1:, :], self.cam_K)
         # print("\n self.bezier_proj_img shape: " + str(self.bezier_proj_img.size()))
@@ -648,20 +648,20 @@ class reconstructCurve():
         if p.shape == (self.num_samples, 3):
             p = torch.unsqueeze(p, dim=1)
 
-        print("\n p[:, :, :-1] shape: " + str(p[:, :, :-1].size()))
-        print("\n p[:, :, :-1]: \n" + str(p[:, :, :-1]))
+        # print("\n p[:, :, :-1] shape: " + str(p[:, :, :-1].size()))
+        # print("\n p[:, :, :-1]: \n" + str(p[:, :, :-1]))
 
-        print("\n torch.unsqueeze((p[:, :, -1]), dim=1) shape: " + str(torch.unsqueeze((p[:, :, -1]), dim=1).size()))
-        print("\n torch.unsqueeze((p[:, :, -1]), dim=1): \n" + str(torch.unsqueeze((p[:, :, -1]), dim=1)))
+        # print("\n torch.unsqueeze((p[:, :, -1]), dim=1) shape: " + str(torch.unsqueeze((p[:, :, -1]), dim=1).size()))
+        # print("\n torch.unsqueeze((p[:, :, -1]), dim=1): \n" + str(torch.unsqueeze((p[:, :, -1]), dim=1)))
 
         divide_z = torch.div(torch.transpose(p[:, :, :-1], 1, 2), torch.unsqueeze((p[:, :, -1]), dim=1))
-        print("\n divide_z 1 shape: " + str(divide_z.size()))
-        print("\n divide_z 1: \n" + str(divide_z))
+        # print("\n divide_z 1 shape: " + str(divide_z.size()))
+        # print("\n divide_z 1: \n" + str(divide_z))
 
-        print("\n p.shape[0]: " + str(p.shape[0]))
+        # print("\n p.shape[0]: " + str(p.shape[0]))
         divide_z = torch.cat((divide_z, torch.ones(self.num_samples, 1, p.shape[1])), dim=1).double()
-        print("\n divide_z 2 shape: " + str(divide_z.size()))
-        print("\n divide_z 2: " + str(divide_z))
+        # print("\n divide_z 2 shape: " + str(divide_z.size()))
+        # print("\n divide_z 2: " + str(divide_z))
 
         return torch.transpose(torch.matmul(cam_K, divide_z)[:, :-1, :], 1, 2)
     
@@ -722,14 +722,14 @@ class reconstructCurve():
         '''
         
         self.num_samples = 30
-        self.samples_per_circle = 30
+        self.samples_per_circle = 10
         self.cylinder_mesh_points = torch.zeros(self.num_samples, self.samples_per_circle, 3)
         
         #self.num_samples = 200
         P0 = control_pts[0, :]
         P1 = control_pts[1, :]
         P2 = control_pts[2, :]
-        P3 = control_pts[3, :]
+        # P3 = control_pts[3, :]
 
         sample_list = torch.linspace(0, 1, self.num_samples)
 
@@ -740,10 +740,15 @@ class reconstructCurve():
         der_bezier = torch.zeros(self.num_samples, 3)
         double_der_bezier = torch.zeros(self.num_samples, 3)
         for i, s in enumerate(sample_list):
-            pos_bezier[i, :] = (1 - s)**3 * P0 + 3 * s * (1 - s)**2 * \
-                P1 + 3 * (1 - s) * s**2 * P2 + s**3 * P3
-            der_bezier[i, :] = 3 * (1 - s)**2 * (P1 - P0) + 6 * (1 - s) * s * (P2 - P1) + 3 * s**2 * (P3 - P2)
-            double_der_bezier[i, :] = 6 * (1 - s) * (P2 - 2*P1 + P0) + 6 * (P3 - 2*P2 + P1) * s
+            # pos_bezier[i, :] = (1 - s)**3 * P0 + 3 * s * (1 - s)**2 * \
+            #     P1 + 3 * (1 - s) * s**2 * P2 + s**3 * P3
+            # der_bezier[i, :] = 3 * (1 - s)**2 * (P1 - P0) + 6 * (1 - s) * s * (P2 - P1) + 3 * s**2 * (P3 - P2)
+            # double_der_bezier[i, :] = 6 * (1 - s) * (P2 - 2*P1 + P0) + 6 * (P3 - 2*P2 + P1) * s
+
+            pos_bezier[i, :] = (1 - s) ** 2 * P0 + 2 * (1 - s) * s * P1 + s ** 2 * P2
+            der_bezier[i, :] = 2 * (1 - s) * (P1 - P0) + 2 * s * (P2 - P1)
+            double_der_bezier[i, :] = 2 * (P2 - 2 * P1 +  P0)
+
 
         # Get normal and binormals at samples along bezier curve
         normal_bezier = torch.zeros(self.num_samples, 3)
@@ -786,6 +791,12 @@ class reconstructCurve():
         if(plot_type == 1 or plot_type == 3):
             self.ax.set_box_aspect([1,1,1]) 
             self.set_axes_equal(self.ax)
+
+            self.ax.set_xlabel('X Label')
+            self.ax.set_ylabel('Y Label')
+            self.ax.set_zlabel('Z Label')
+
+
             plt.show()
 
 
@@ -795,7 +806,7 @@ class reconstructCurve():
 
         if(plot_type == 1 or plot_type == 2): 
             self.getCylinderMeshProjImg(self.cylinder_mesh_points)
-            print("\nself.bezier_proj_img: \n" + str(self.bezier_proj_img))
+            # print("\nself.bezier_proj_img: \n" + str(self.bezier_proj_img))
             self.draw2DCylinderImage()
 
 
@@ -808,42 +819,54 @@ class reconstructCurve():
 
 if __name__ == '__main__': 
 
-    test_control_points1 = torch.tensor([[0., 0., 0.], 
+    cubic_test_control_points1 = torch.tensor([[0., 0., 0.], 
                                         [0., 1., 2.5], 
                                         [0., 2., 0.5], 
                                         [0., 3., 3.]])
     
     # Will produce curve in image: 
-    test_control_points2 = torch.tensor([[0.02, 0.002, 0.0], 
+    cubic_test_control_points2 = torch.tensor([[0.02, 0.002, 0.0], 
                                         [0.01958988, 0.00195899, 0.09690406], 
                                         [0.1, 0.03, 0.3], 
                                         [-0.03142905, -0.0031429, 0.18200866]])
     
-    test_control_points3 = torch.tensor([[0., 0., 0.], 
+    cubic_test_control_points3 = torch.tensor([[0., 0., 0.], 
                                         [0.02, 0.005, 0.025], 
                                         [-0.02, 0.02, 0.005], 
                                         [0., 0.03, 0.03]])
 
-    test_control_points4 = torch.tensor([[0., 0., 0.], 
+    cubic_test_control_points4 = torch.tensor([[0., 0., 0.], 
                                         [2., 0.5, 2.5], 
                                         [-2., 2., 0.5], 
                                         [0., 3., 3.]])
 
-    test_control_points5 = torch.tensor([[0., 0., 0.], 
+    cubic_test_control_points5 = torch.tensor([[0., 0., 0.], 
                                         [20., 5., 25.], 
                                         [-20., 20., 5.], 
                                         [0., 30., 30.]])
 
-    test_control_points6 = torch.tensor([[0., 0., 0.], 
+    cubic_test_control_points6 = torch.tensor([[0., 0., 0.], 
                                         [5., 5., 5.], 
                                         [10., 10., 10.], 
                                         [15., 15., 15.]])
 
-    test_control_points7 = torch.tensor([[[0., 0., 0.], 
+    cubic_test_control_points7 = torch.tensor([[[0., 0., 0.], 
                                         [5., 5., 5.], 
                                         [10., 10., 10.], 
                                         [15., 15., 15.], 
                                         [15., 15., 15.]]])
+
+    quadratic_test_control_points1 = torch.tensor([[0.02, 0.002, 0.0], 
+                                                   [0.01958988, 0.00195899, 0.09690406], 
+                                                   [-0.03142905, -0.0031429, 0.18200866]])
+    # quadratic_test_control_points1[0, :] += 0.01
+    # quadratic_test_control_points1[0, :] += 0.02
+    # quadratic_test_control_points1[0, :] += 0.03
+    # quadratic_test_control_points1[0, :] += 0.04
+    # quadratic_test_control_points1[0, :] += 0.05
+
+
+    print(quadratic_test_control_points1)
 
     a = reconstructCurve()
 
@@ -851,7 +874,10 @@ if __name__ == '__main__':
     img_save_path = case_naming + '.png'
 
     a.loadRawImage(img_save_path)
-    a.getBezierCurveCylinder(test_control_points2, 0.01, 1)
+    a.getBezierCurveCylinder(quadratic_test_control_points1, 0.01 * 0.1, 1)
     
 
 
+# LABEL axes
+# ask about radius
+# 
