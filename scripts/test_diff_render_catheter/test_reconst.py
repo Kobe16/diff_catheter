@@ -31,7 +31,7 @@ import os
 import pdb
 import argparse
 
-class reconstructCurve():
+class ConstructionBezier():
     '''
     def __init__(self, img_path, curve_length_gt, P0_gt, para_gt, para_init, loss_weight, total_itr, verbose=0):
 
@@ -328,7 +328,7 @@ class reconstructCurve():
         return bezier_binormal
 
 ###################################################################################################
-###################################################################################################
+################### ################################################################################
 ###################################################################################################
 
     def getNormalizedVectors(self, set_of_vectors): 
@@ -702,16 +702,61 @@ class reconstructCurve():
 
         return segmented_circle_draw_img_rgb       
     
+
+
+    def get2DCylinderImage(self):
+        '''
+        Method to obtain 2D image of the cylinder mesh, without reference image
+        in the background. Goal is to use this 2D image as the binary mask for the
+        appearance loss function. 
+        '''
+
+        # Create black image that is same size/dimensions as self.raw_img_rgb
+        segmented_circle_draw_img_bin = np.zeros((self.raw_img_rgb.shape[0], self.raw_img_rgb.shape[1], 3), np.uint8)
+
+        ## torch clone
+        bezier_proj_img = torch.clone(self.bezier_proj_img)
+
+        # Draw circle segment
+        for j in range(bezier_proj_img.shape[0] - 1): 
+            for i in range(bezier_proj_img.shape[1] - 1):
+                # if not self.isPointInImage(bezier_proj_img[i, :], centerline_draw_img_rgb.shape[1], centerline_draw_img_rgb.shape[0]):
+                #     continue
+                # if not self.isPointInImage(bezier_proj_img[i + 1, :], centerline_draw_img_rgb.shape[1], centerline_draw_img_rgb.shape[0]):
+                #     continue
+
+                p1 = (int(bezier_proj_img[j, i, 0]), int(bezier_proj_img[j, i, 1]))
+                # cv2.circle(segmented_circle_draw_img_rgb, p1, 1, (0, 100, 255), -1)
+                cv2.circle(segmented_circle_draw_img_bin, p1, 1, (255, 255, 255), -1)
+
+        # ---------------
+        # plot with
+        # ---------------
+        # fig, ax = plt.subplots(figsize=(8, 5))
+
+        # ax.imshow(cv2.cvtColor(segmented_circle_draw_img_bin, cv2.COLOR_BGR2RGB))
+        # ax.set_title('2D Bezier Cylinder Mesh')
+
+        # plt.tight_layout()
+        # plt.show()
+
+        return segmented_circle_draw_img_bin    
+
+
+
+
 ###################################################################################################
 ###################################################################################################
 ###################################################################################################
 
-    def getBezierCurveCylinder(self, control_pts, radius, plot_type): 
+    def getBezierCurveCylinder(self, para_gt, p_start, radius, plot_type): 
         '''
         Method to obtain bezier curve position, tangents, normals, and binormals. 
         Calls helper methods to plot these vectors. 
 
         Args: 
+            para_gt: ground truth parameters for bezier curve. Extract bezier control points from this.
+            p_start: starting point for bezier curve
             control_pts (tensor of shape [4, 3]): contains the control points for the Bezier curve
             radius (Float):  value for radius of robotic catheter
             plot_type (0, 1, 2, 3): 
@@ -725,10 +770,20 @@ class reconstructCurve():
         self.samples_per_circle = 10
         self.cylinder_mesh_points = torch.zeros(self.num_samples, self.samples_per_circle, 3)
         
-        #self.num_samples = 200
-        P0 = control_pts[0, :]
-        P1 = control_pts[1, :]
-        P2 = control_pts[2, :]
+
+        # Get control points from ground truth parameters
+        p_mid = para_gt[0:3]
+        p_end = para_gt[3:6]
+        p_c2 = 4 / 3 * p_mid - 1 / 3 * p_start
+        p_c1 = 4 / 3 * p_mid - 1 / 3 * p_end
+
+        P0 = p_start
+        P1 = p_c1
+        P2 = p_c2
+
+        # P0 = control_pts[0, :]
+        # P1 = control_pts[1, :]
+        # P2 = control_pts[2, :]
         # P3 = control_pts[3, :]
 
         sample_list = torch.linspace(0, 1, self.num_samples)
@@ -808,6 +863,7 @@ class reconstructCurve():
             self.getCylinderMeshProjImg(self.cylinder_mesh_points)
             # print("\nself.bezier_proj_img: \n" + str(self.bezier_proj_img))
             self.draw2DCylinderImage()
+            self.get2DCylinderImage()
 
 
 
@@ -865,16 +921,18 @@ if __name__ == '__main__':
     # quadratic_test_control_points1[0, :] += 0.04
     # quadratic_test_control_points1[0, :] += 0.05
 
+    quadratic_test_para_init1 = torch.tensor([0.01958988, 0.00195899, 0.09690406, -0.03142905, -0.0031429, 0.18200866])
+    quadratic_test_para_start1 = torch.tensor([0.02, 0.002, 0.0])
 
     print(quadratic_test_control_points1)
 
-    a = reconstructCurve()
+    a = ConstructionBezier()
 
     case_naming = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/scripts/diff_render/blender_imgs/diff_render_1'
     img_save_path = case_naming + '.png'
 
     a.loadRawImage(img_save_path)
-    a.getBezierCurveCylinder(quadratic_test_control_points1, 0.01 * 0.1, 1)
+    a.getBezierCurveCylinder(quadratic_test_para_init1, quadratic_test_para_start1, 0.01 * 0.1, 1)
     
 
 
