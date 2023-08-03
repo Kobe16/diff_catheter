@@ -77,6 +77,8 @@ class DiffOptimizeModel(nn.Module):
         ### get Bezier Surface
         ###========================================================
         ## define a bezier curve
+        print("para_init: ", self.para_init)
+        print("p_start: ", self.p_start)
         self.build_bezier.getBezierCurve(self.para_init, self.p_start)
         ## get the bezier in TNB frame, in order to build a tube mesh
         # build_bezier.getBezierTNB(build_bezier.bezier_pos_cam, build_bezier.bezier_der_cam, build_bezier.bezier_snd_der_cam)
@@ -245,12 +247,15 @@ if __name__ == '__main__':
     # pdb.set_trace()
 
     optimizer = torch.optim.Adam(diff_model.parameters(), lr=1e-4)
+    # optimizer = torch.optim.Adam(diff_model.parameters(), lr=1e-8)
+
 
     # loss, _ = diff_model(save_img_path)
     # print(loss)
 
     loop = tqdm(range(100))
     for loop_id in loop:
+        print('\n *********************************LOOP_ID: ', loop_id)
 
         # save_img_path = '/home/fei/diff_catheter/scripts/diff_render/blender_imgs/torch3d_rendered_imgs/' + 'torch3d_render_' + str(
         #     loop_id) + '.jpg'  # save the figure to file
@@ -261,8 +266,14 @@ if __name__ == '__main__':
         optimizer.zero_grad()
         loss = diff_model(save_img_path)
 
+        print("Loss BEFORE BACK PROP: ", loss)
+        for name, param in diff_model.named_parameters():
+            print(f'Parameter: {name}, Gradient: {param.grad}')
+
+
         # pdb.set_trace()
         loss.backward()
+        # torch.nn.utils.clip_grad_norm_(diff_model.parameters(), max_norm=1.0)
         optimizer.step()
 
         # loop.set_description('Optimizing (loss %.4f)' % loss.data)
