@@ -76,7 +76,7 @@ class CatheterOptimizeModel(nn.Module):
 
         # Plot 2D projected Bezier Cylinder mesh points
         self.build_bezier.getCylinderMeshProjImg()
-        self.build_bezier.draw2DCylinderImage()
+        # self.build_bezier.draw2DCylinderImage()
 
         ###========================================================
         ### 2) Get 2D projected points image from bezier curve tube
@@ -89,7 +89,7 @@ class CatheterOptimizeModel(nn.Module):
         ###========================================================
         # Extract alpha channel from img_render, then convert to torch tensor
         img_render_alpha = torch.from_numpy(img_render[0, ..., 3].astype(np.float32))
-        print("img_render_alpha: ", img_render_alpha.shape)
+        # print("img_render_alpha: ", img_render_alpha.shape)
         # fig, ax = plt.subplots()
         # ax.plot(img_render_alpha)
         # ax.set_title('img_render_alpha')

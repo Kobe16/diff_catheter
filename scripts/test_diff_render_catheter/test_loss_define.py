@@ -41,13 +41,13 @@ class AppearanceLoss(nn.Module):
 
         # Plot img_ref and img_render_binary
         # ISSUE: blank screen (no proj points on img_render_binary)
-        plt.figure()
-        plt.imshow(img_ref)
-        plt.show()
+        # plt.figure()
+        # plt.imshow(img_ref)
+        # plt.show()
 
-        plt.figure()
-        plt.imshow(img_render_binary)
-        plt.show()
+        # plt.figure()
+        # plt.imshow(img_render_binary)
+        # plt.show()
 
 
         dist = torch.sum((img_render - img_ref) ** 2)

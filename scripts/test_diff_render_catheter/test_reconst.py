@@ -702,7 +702,6 @@ class ConstructionBezier(nn.Module):
         return torch.transpose(torch.matmul(cam_K, divide_z)[:, :-1, :], 1, 2)
     
     def draw2DCylinderImage(self):  
-        print("\n draw2DCylinderImage")
 
         ## numpy copy
         segmented_circle_draw_img_rgb = self.raw_img_rgb.copy()
@@ -726,8 +725,7 @@ class ConstructionBezier(nn.Module):
                 #     continue
 
                 p1 = (int(bezier_proj_img[i, j, 0]), int(bezier_proj_img[i, j, 1]))
-                print("\n p1: " + str(p1))
-                # cv2.circle(segmented_circle_draw_img_rgb, p1, 1, (0, 100, 255), -1)
+                # print("\n p1: " + str(p1))
                 cv2.circle(segmented_circle_draw_img_rgb, p1, 1, (red_val, green_val, blue_val), -1)
         
 
@@ -754,8 +752,6 @@ class ConstructionBezier(nn.Module):
         appearance loss function. 
         '''
 
-        print("\n get2DCylinderImage()")
-
         # Create black image that is same size/dimensions as self.raw_img_rgb
         segmented_circle_draw_img_bin = np.zeros((1, self.raw_img_rgb.shape[0], self.raw_img_rgb.shape[1], 4), np.uint8)
         # print("\n segmented_circle_draw_img_bin shape: " + str(segmented_circle_draw_img_bin.shape))
@@ -763,10 +759,10 @@ class ConstructionBezier(nn.Module):
         ## torch clone
         bezier_proj_img = torch.clone(self.bezier_proj_img)
 
-        print("segmented_circle_draw_img_bin.shape[0]: ", segmented_circle_draw_img_bin.shape[0])
-        print("segmented_circle_draw_img_bin.shape[1]: ", segmented_circle_draw_img_bin.shape[1])
-        print("segmented_circle_draw_img_bin.shape[2]: ", segmented_circle_draw_img_bin.shape[2])
-        print("segmented_circle_draw_img_bin.shape[3]: ", segmented_circle_draw_img_bin.shape[3])
+        # print("segmented_circle_draw_img_bin.shape[0]: ", segmented_circle_draw_img_bin.shape[0])
+        # print("segmented_circle_draw_img_bin.shape[1]: ", segmented_circle_draw_img_bin.shape[1])
+        # print("segmented_circle_draw_img_bin.shape[2]: ", segmented_circle_draw_img_bin.shape[2])
+        # print("segmented_circle_draw_img_bin.shape[3]: ", segmented_circle_draw_img_bin.shape[3])
 
         # Draw circle segment
         for i in range(bezier_proj_img.shape[0] - 1): 
@@ -777,10 +773,8 @@ class ConstructionBezier(nn.Module):
                 #     continue
 
                 p1 = (int(bezier_proj_img[i, j, 0]), int(bezier_proj_img[i, j, 1]))
-                print("\n p1: " + str(p1))
-                # cv2.circle(segmented_circle_draw_img_rgb, p1, 1, (0, 100, 255), -1)
-                # cv2.circle(segmented_circle_draw_img_bin[0, p1[1], p1[0], :], p1, 20, (255, 255, 255), -1)
-                cv2.circle(segmented_circle_draw_img_bin[0], p1, 1, (255, 255, 255, 255), -1)
+                # print("\n p1: " + str(p1))
+                cv2.circle(segmented_circle_draw_img_bin[0], p1, 1, (255, 255, 255, 1), -1)
 
 
         # ---------------
@@ -801,6 +795,7 @@ class ConstructionBezier(nn.Module):
 
         # plt.show()
 
+        # Original plotting method (don't use this now...)
         # fig, ax = plt.subplots(figsize=(8, 5))
         # ax.imshow(cv2.cvtColor(segmented_circle_draw_img_bin.squeeze(), cv2.COLOR_BGR2RGB))
         # ax.set_title('2D Bezier Cylinder Mesh')
@@ -832,8 +827,8 @@ class ConstructionBezier(nn.Module):
                 3 = plot 3d model
         '''
         
-        self.num_samples = 30
-        self.samples_per_circle = 10
+        self.num_samples = 100
+        self.samples_per_circle = 30
         self.cylinder_mesh_points = torch.zeros(self.num_samples, self.samples_per_circle, 3)
         
 
