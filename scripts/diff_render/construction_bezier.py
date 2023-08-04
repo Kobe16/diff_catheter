@@ -138,6 +138,9 @@ class ConstructionBezier(nn.Module):
 
     def getBezierTNB(self, bezier_pos, bezier_der, bezier_snd_der):
 
+        # ADD EPSILON TO AVOID DIVISION BY ZERO
+        epsilon = 1e-4
+
         bezier_der_n = torch.linalg.norm(bezier_der, ord=2, dim=1)
         # self.bezier_tangent = bezier_der / torch.unsqueeze(bezier_der_n, dim=1)
 
@@ -145,14 +148,21 @@ class ConstructionBezier(nn.Module):
         bezier_normal_numerator_n = torch.mul(
             bezier_der_n, torch.linalg.norm(torch.linalg.cross(bezier_snd_der, bezier_der), ord=2, dim=1))
 
-        self.bezier_normal = bezier_normal_numerator / torch.unsqueeze(bezier_normal_numerator_n, dim=1)
+        # self.bezier_normal = bezier_normal_numerator / torch.unsqueeze(bezier_normal_numerator_n, dim=1)
+        self.bezier_normal = bezier_normal_numerator / (torch.unsqueeze(bezier_normal_numerator_n, dim=1) + epsilon)
+
 
         bezier_binormal_numerator = torch.linalg.cross(bezier_der, bezier_snd_der)
         bezier_binormal_numerator_n = torch.linalg.norm(bezier_binormal_numerator, ord=2, dim=1)
 
-        self.bezier_binormal = bezier_binormal_numerator / torch.unsqueeze(bezier_binormal_numerator_n, dim=1)
+        # self.bezier_binormal = bezier_binormal_numerator / torch.unsqueeze(bezier_binormal_numerator_n, dim=1)
+        self.bezier_binormal = bezier_binormal_numerator / (torch.unsqueeze(bezier_binormal_numerator_n, dim=1) + epsilon)
+
 
         # pdb.set_trace()
+
+        # assert torch.all(torch.isfinite(self.bezier_normal))
+        # assert torch.all(torch.isfinite(self.bezier_binormal))
 
         assert not torch.any(torch.isnan(self.bezier_normal))
         assert not torch.any(torch.isnan(self.bezier_binormal))

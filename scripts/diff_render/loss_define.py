@@ -72,6 +72,7 @@ class MaskLoss(nn.Module):
     def __init__(self, device):
         super(MaskLoss, self).__init__()
         self.device = device
+        # self.mse_loss = nn.MSELoss()
 
     def forward(self, img_render, img_ref):
         # Binarize img_render [0.0, 1.0] -> {0., 1.}
@@ -86,6 +87,7 @@ class MaskLoss(nn.Module):
         # img_diff = torch.abs(img_render - img_ref)**2
 
         dist = torch.sum((img_render -img_ref) ** 2)
+        # dist = self.mse_loss(img_render, img_ref)
         assert (dist >= 0)
 
         # fig, axes = plt.subplots(2, 2, figsize=(8, 8))
