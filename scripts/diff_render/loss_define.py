@@ -88,7 +88,7 @@ class MaskLoss(nn.Module):
 
         dist = torch.sum((img_render -img_ref) ** 2)
         # dist = self.mse_loss(img_render, img_ref)
-        # assert (dist >= 0)
+        assert (dist >= 0)
 
         # fig, axes = plt.subplots(2, 2, figsize=(8, 8))
         # ax = axes.ravel()

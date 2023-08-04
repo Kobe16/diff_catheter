@@ -102,14 +102,14 @@ class DiffRenderCatheter(nn.Module):
         #     shader=torch3d_render.SoftPhongShader(device=self.gpu_or_cpu,
         #                                           cameras=self.render_cameras,
         #                                           lights=self.lights))
-        self.renderer_catheter = torch3d_render.MeshRenderer(
-            rasterizer=torch3d_render.MeshRasterizer(cameras=self.render_cameras, raster_settings=raster_settings),
-            shader=torch3d_render.SoftSilhouetteShader(
-                blend_params=torch3d_blending.BlendParams(sigma=1e-2, gamma=1e-2)))
         # self.renderer_catheter = torch3d_render.MeshRenderer(
-        #     rasterizer=torch3d_render.MeshRasterizer(cameras=self.render_cameras, raster_settings=raster_settings, eps=1e-4),
+        #     rasterizer=torch3d_render.MeshRasterizer(cameras=self.render_cameras, raster_settings=raster_settings),
         #     shader=torch3d_render.SoftSilhouetteShader(
         #         blend_params=torch3d_blending.BlendParams(sigma=1e-2, gamma=1e-2)))
+        self.renderer_catheter = torch3d_render.MeshRenderer(
+            rasterizer=torch3d_render.MeshRasterizer(cameras=self.render_cameras, raster_settings=raster_settings, eps=1e-4),
+            shader=torch3d_render.SoftSilhouetteShader(
+                blend_params=torch3d_blending.BlendParams(sigma=1e-2, gamma=1e-2)))
 
         self.render_catheter_img = self.renderer_catheter(self.updated_cylinder_primitive_mesh) + 1e-4
         print("********************render_catheter_img shape: ", self.render_catheter_img.shape)
