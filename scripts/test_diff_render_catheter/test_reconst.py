@@ -123,6 +123,9 @@ class ConstructionBezier(nn.Module):
         self.setCameraParams(camera_settings.a, camera_settings.b, camera_settings.center_x, camera_settings.center_y,
                              camera_settings.image_size_x, camera_settings.image_size_y, camera_settings.extrinsics,
                              camera_settings.intrinsics)
+        
+        # Used to generate same set of random numbers each time (mainly used for getting random points in circles)
+        torch.manual_seed(0)
 
     def setCameraParams(self, fx, fy, cx, cy, size_x, size_y, camera_extrinsics, camera_intrinsics):
         """
@@ -373,10 +376,10 @@ class ConstructionBezier(nn.Module):
             normal_vec: normal vector at that point on Bezier curve
             binormal_vec: binormal vector at that point on Bezier curve
         '''
-        rand_dist_from_center = radius * math.sqrt(random())
-        rand_angle = 2 * math.pi * random()
+        rand_dist_from_center = radius * torch.sqrt(torch.rand(1))
+        rand_angle = 2 * math.pi * torch.rand(1)
 
-        rand_circle_point = center_point + rand_dist_from_center * (math.cos(rand_angle)) * normal_vec + rand_dist_from_center * (math.sin(rand_angle)) * binormal_vec
+        rand_circle_point = center_point + rand_dist_from_center * (torch.cos(rand_angle)) * normal_vec + rand_dist_from_center * (torch.sin(rand_angle)) * binormal_vec
 
         return rand_circle_point
 
