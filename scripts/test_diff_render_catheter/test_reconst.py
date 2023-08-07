@@ -748,6 +748,9 @@ class ConstructionBezier(nn.Module):
 
 # Function to get 2D image of the cylinder mesh, without reference image
 
+    def differentiableApproximationRounding(self, val): 
+        return val - ((torch.sin(math.pi * val)) / 2 * math.pi)
+
     def get2DCylinderImage(self):
         '''
         Method to obtain 2D image of the cylinder mesh, without reference image
@@ -755,8 +758,13 @@ class ConstructionBezier(nn.Module):
         appearance loss function. 
         '''
 
+        print("\n self.raw_img_rgb.shape[0]: " + str(self.raw_img_rgb.shape[0]))
+        print("\n self.raw_img_rgb.shape[1]: " + str(self.raw_img_rgb.shape[1]))
+
         # Create black image that is same size/dimensions as self.raw_img_rgb
-        segmented_circle_draw_img_bin = np.zeros((1, self.raw_img_rgb.shape[0], self.raw_img_rgb.shape[1], 4), np.uint8)
+        # Note: self.raw_img_rgb is of size (H = 480, W = 640, 3)
+        segmented_circle_draw_img_bin = torch.zeros((1, self.raw_img_rgb.shape[0], self.raw_img_rgb.shape[1], 4), dtype=torch.float32)
+        # segmented_circle_draw_img_bin = torch.zeros((1, 480, 640, 4), dtype=torch.float32)
         # print("\n segmented_circle_draw_img_bin shape: " + str(segmented_circle_draw_img_bin.shape))
 
         ## torch clone
@@ -775,9 +783,12 @@ class ConstructionBezier(nn.Module):
                 # if not self.isPointInImage(bezier_proj_img[i + 1, :], centerline_draw_img_rgb.shape[1], centerline_draw_img_rgb.shape[0]):
                 #     continue
 
-                p1 = (int(bezier_proj_img[i, j, 0]), int(bezier_proj_img[i, j, 1]))
-                # print("\n p1: " + str(p1))
-                cv2.circle(segmented_circle_draw_img_bin[0], p1, 1, (255, 255, 255, 1), -1)
+                # p1 = (int(bezier_proj_img[i, j, 0]), int(bezier_proj_img[i, j, 1]))
+                p1 = (self.differentiableApproximationRounding(bezier_proj_img[i, j, 0]), self.differentiableApproximationRounding(bezier_proj_img[i, j, 1]))
+
+                print("\n p1: " + str(p1))
+                # cv2.circle(segmented_circle_draw_img_bin[0], p1, 1, (255, 255, 255, 1), -1)
+                segmented_circle_draw_img_bin[0, p1[1], p1[0], 3] = 1
 
 
         # ---------------
@@ -830,8 +841,8 @@ class ConstructionBezier(nn.Module):
                 3 = plot 3d model
         '''
         
-        self.num_samples = 100
-        self.samples_per_circle = 30
+        self.num_samples = 9
+        self.samples_per_circle = 20
         self.cylinder_mesh_points = torch.zeros(self.num_samples, self.samples_per_circle, 3)
         
 

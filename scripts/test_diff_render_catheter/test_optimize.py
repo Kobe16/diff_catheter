@@ -166,10 +166,12 @@ if __name__ == '__main__':
     optimizer = torch.optim.Adam(catheter_optimize_model.parameters(), lr=1e-4)
 
     # Run the optimization loop
-    loop = tqdm(range(1))
+    loop = tqdm(range(10))
     for loop_id in loop:
         print("\n========================================================")
         print("loop_id: ", loop_id)
+
+        # pdb.set_trace()
 
         # Zero the gradients before running the backward pass.
         optimizer.zero_grad()
