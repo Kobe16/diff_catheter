@@ -120,6 +120,14 @@ class ConstructionBezier(nn.Module):
         self.ax = self.fig.add_subplot(111, projection='3d')
         self.epsilon = 1e-8
 
+        # Number of samples to take
+        self.num_samples = 9
+        self.samples_per_circle = 20
+        self.bezier_surface_resolution = 50
+        self.cylinder_mesh_points = torch.zeros(self.num_samples, self.samples_per_circle, 3)
+
+        self.radius = 0.0015
+
         self.setCameraParams(camera_settings.a, camera_settings.b, camera_settings.center_x, camera_settings.center_y,
                              camera_settings.image_size_x, camera_settings.image_size_y, camera_settings.extrinsics,
                              camera_settings.intrinsics)
@@ -657,8 +665,8 @@ class ConstructionBezier(nn.Module):
 # Functions to get ENTIRE CYLINDER projected image (with ref img in background)
 
     def getCylinderMeshProjImg(self): 
-        # print("\n cylinder_mesh shape: " + str(cylinder_mesh.size()))
-        # print("\n cylinder_mesh: \n" + str(cylinder_mesh))
+        # print("\n cylinder_mesh shape: " + str(self.cylinder_mesh_points.size()))
+        # print("\n cylinder_mesh: \n" + str(self.cylinder_mesh_points))
 
         # Convert 3D world position to camera frame
         pos_bezier_H = torch.cat((self.cylinder_mesh_points, torch.ones(self.num_samples, self.samples_per_circle, 1)), dim=2)
@@ -680,6 +688,7 @@ class ConstructionBezier(nn.Module):
 
         self.bezier_proj_img = self.getProjCylPointCam(self.bezier_pos_cam[:, 1:, :], self.cam_K)
         # print("\n self.bezier_proj_img shape: " + str(self.bezier_proj_img.size()))
+        # print("\n self.bezier_proj_img average value: " + str(torch.mean(self.bezier_proj_img)))
         # print("\n self.bezier_proj_img: " + str(self.bezier_proj_img))
 
     def getProjCylPointCam(self, p, cam_K): 
@@ -695,11 +704,13 @@ class ConstructionBezier(nn.Module):
 
         divide_z = torch.div(torch.transpose(p[:, :, :-1], 1, 2), torch.unsqueeze((p[:, :, -1]), dim=1))
         # print("\n divide_z 1 shape: " + str(divide_z.size()))
+        # print("\n divide_z 1 average value: " + str(torch.mean(divide_z)))
         # print("\n divide_z 1: \n" + str(divide_z))
 
         # print("\n p.shape[0]: " + str(p.shape[0]))
         divide_z = torch.cat((divide_z, torch.ones(self.num_samples, 1, p.shape[1])), dim=1).double()
         # print("\n divide_z 2 shape: " + str(divide_z.size()))
+        # print("\n divide_z 2 average value: " + str(torch.mean(divide_z)))
         # print("\n divide_z 2: " + str(divide_z))
 
         return torch.transpose(torch.matmul(cam_K, divide_z)[:, :-1, :], 1, 2)
@@ -745,8 +756,21 @@ class ConstructionBezier(nn.Module):
 
         return segmented_circle_draw_img_rgb       
     
+    def plotAll2dProjPoints(self): 
+        '''
+        Method to plot ALL 2d projected points on the image plane, even the outliers. 
+        Must have called method getCylinderMeshProjImg() before this to fill out self.bezier_proj_img
+        '''
+        # Plot bezier_proj_img
+        fig, ax = plt.subplots(figsize=(8, 5))
+        for i in range(self.bezier_proj_img.shape[0] - 1): 
+            for j in range(self.bezier_proj_img.shape[1] - 1):
+                ax.scatter(self.bezier_proj_img[i, j, 0].detach().numpy(), self.bezier_proj_img[i, j, 1].detach().numpy(), c='b', s=1)
+        ax.set_title('2D Bezier Cylinder Mesh -- ALL POINTS')
+        plt.tight_layout()
+        plt.show()
 
-# Function to get 2D image of the cylinder mesh, without reference image
+# [DON'T USE THIS] Function to get 2D image of the cylinder mesh, without reference image 
 
     def differentiableApproximationRounding(self, val): 
         return val - ((torch.sin(math.pi * val)) / 2 * math.pi)
@@ -756,6 +780,8 @@ class ConstructionBezier(nn.Module):
         Method to obtain 2D image of the cylinder mesh, without reference image
         in the background. Goal is to use this 2D image as the binary mask for the
         appearance loss function. 
+
+        UPDATE: Not using this method anymore -- not differentiable because had to use int(), which rounds floats
         '''
 
         print("\n self.raw_img_rgb.shape[0]: " + str(self.raw_img_rgb.shape[0]))
@@ -783,12 +809,12 @@ class ConstructionBezier(nn.Module):
                 # if not self.isPointInImage(bezier_proj_img[i + 1, :], centerline_draw_img_rgb.shape[1], centerline_draw_img_rgb.shape[0]):
                 #     continue
 
-                # p1 = (int(bezier_proj_img[i, j, 0]), int(bezier_proj_img[i, j, 1]))
-                p1 = (self.differentiableApproximationRounding(bezier_proj_img[i, j, 0]), self.differentiableApproximationRounding(bezier_proj_img[i, j, 1]))
+                p1 = (int(bezier_proj_img[i, j, 0]), int(bezier_proj_img[i, j, 1]))
+                # p1 = (self.differentiableApproximationRounding(bezier_proj_img[i, j, 0]), self.differentiableApproximationRounding(bezier_proj_img[i, j, 1]))
 
-                print("\n p1: " + str(p1))
+                # print("\n p1: " + str(p1))
                 # cv2.circle(segmented_circle_draw_img_bin[0], p1, 1, (255, 255, 255, 1), -1)
-                segmented_circle_draw_img_bin[0, p1[1], p1[0], 3] = 1
+                segmented_circle_draw_img_bin[0, int(p1[1]), int(p1[0]), 3] = 1
 
 
         # ---------------
@@ -816,7 +842,16 @@ class ConstructionBezier(nn.Module):
         # plt.tight_layout()
         # plt.show()
 
-        return segmented_circle_draw_img_bin    
+        return segmented_circle_draw_img_bin
+
+###################################################################################################
+###################################################################################################
+###################################################################################################
+
+# Function to generate the cylinder mesh in PyTorch3D
+
+    def getBezierCylinderMesh(self): 
+        self.bezier_mesh = torch.zeros(self.num_samples, self.bezier_surface_resolution, 3)
 
 
 
@@ -824,7 +859,8 @@ class ConstructionBezier(nn.Module):
 ###################################################################################################
 ###################################################################################################
 
-    def getBezierCurveCylinder(self, para_gt, p_start, radius): 
+
+    def getBezierCurveCylinder(self, para_gt, p_start): 
         '''
         Method to obtain bezier curve position, tangents, normals, and binormals. 
         Calls helper methods to plot these vectors. 
@@ -832,20 +868,11 @@ class ConstructionBezier(nn.Module):
         Args: 
             para_gt: ground truth parameters for bezier curve. Extract bezier control points from this.
             p_start: starting point for bezier curve
-            control_pts (tensor of shape [4, 3]): contains the control points for the Bezier curve
-            radius (Float):  value for radius of robotic catheter
-            plot_type (0, 1, 2, 3): 
-                0 or anything else = plot nothing
-                1 = plot both
-                2 = plot 2d projection
-                3 = plot 3d model
+            
+            Deprecated: 
+                control_pts (tensor of shape [4, 3]): contains the control points for the Bezier curve
         '''
         
-        self.num_samples = 9
-        self.samples_per_circle = 20
-        self.cylinder_mesh_points = torch.zeros(self.num_samples, self.samples_per_circle, 3)
-        
-
         # Get control points from ground truth parameters
         p_mid = para_gt[0:3]
         p_end = para_gt[3:6]
@@ -912,34 +939,8 @@ class ConstructionBezier(nn.Module):
             for j in range(self.samples_per_circle): 
                 normal_vec_normalized = self.getNormalizedVectors(normal_vec)
                 binormal_vec_normalized = self.getNormalizedVectors(binormal_vec)
-                self.cylinder_mesh_points[i, j, :] = self.getRandCirclePoint(radius, pos_vec, normal_vec_normalized, binormal_vec_normalized)
+                self.cylinder_mesh_points[i, j, :] = self.getRandCirclePoint(self.radius, pos_vec, normal_vec_normalized, binormal_vec_normalized)
     
-        #         if(plot_type == 1 or plot_type == 3): 
-        #         # Plot cylinder mesh points
-        #             self.ax.scatter(pos_vec[0] + self.cylinder_mesh_points[i, j, 0], pos_vec[1] + self.cylinder_mesh_points[i, j, 1], pos_vec[2] + self.cylinder_mesh_points[i, j, 2])
-
-        # # Set up axes for 3d plot
-        # if(plot_type == 1 or plot_type == 3):
-        #     self.ax.set_box_aspect([1,1,1]) 
-        #     self.set_axes_equal(self.ax)
-
-        #     self.ax.set_xlabel('X Label')
-        #     self.ax.set_ylabel('Y Label')
-        #     self.ax.set_zlabel('Z Label')
-
-        #     plt.show()
-
-
-        # self.getSegmentedCircleProjImg(self.cylinder_mesh_points[3, :, :])
-        # print("\nself.bezier_proj_img: \n" + str(self.bezier_proj_img))
-        # self.draw2DCircleImage()
-
-        # Plot 2D projection of cylinder mesh points
-        # if(plot_type == 1 or plot_type == 2): 
-        #     self.getCylinderMeshProjImg()
-        #     # print("\nself.bezier_proj_img: \n" + str(self.bezier_proj_img))
-        #     self.draw2DCylinderImage()
-        #     self.get2DCylinderImage()
 
 
 
@@ -1037,7 +1038,9 @@ if __name__ == '__main__':
     # Plot 3D Bezier Cylinder mesh points
     build_bezier.plot3dBezierCylinder()
 
-    # Plot 2D projected Bezier Cylinder mesh points
+    # Get 2D projected Bezier Cylinder mesh points
     build_bezier.getCylinderMeshProjImg()
+
+    # Plot 2D projected Bezier Cylinder mesh points
     build_bezier.draw2DCylinderImage()
     

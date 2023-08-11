@@ -21,10 +21,10 @@ import matplotlib.pyplot as plt
 
 import pdb
 
-from test_reconst import ConstructionBezier
+from test_reconst_v2 import ConstructionBezier
 # from blender_catheter import BlenderRenderCatheter
 # from diff_render_catheter import DiffRenderCatheter
-from test_loss_define import AppearanceLoss
+from test_loss_define_v2 import ChamferLossWholeImage, ContourChamferLoss
 
 import pytorch3d
 
@@ -47,12 +47,12 @@ class CatheterOptimizeModel(nn.Module):
         self.build_bezier.to(gpu_or_cpu)
         self.build_bezier.loadRawImage(img_save_path)
 
-        self.appearance_loss = AppearanceLoss(device=gpu_or_cpu)
-        self.appearance_loss.to(gpu_or_cpu)
+        self.chamfer_loss_whole_image = ChamferLossWholeImage(device=gpu_or_cpu)
+        self.chamfer_loss_whole_image.to(gpu_or_cpu)
+        self.contour_chamfer_loss = ContourChamferLoss(device=gpu_or_cpu)
+        self.contour_chamfer_loss.to(gpu_or_cpu)
 
-        self.p_start = p_start.to(gpu_or_cpu)
-
-        self.bezier_radius = 0.0015
+        self.p_start = p_start.to(gpu_or_cpu).detach()
 
         # Straight Line for initial parameters
         self.para_init = nn.Parameter(torch.from_numpy(
@@ -60,49 +60,70 @@ class CatheterOptimizeModel(nn.Module):
                      dtype=np.float32)).to(gpu_or_cpu),
                                       requires_grad=True)
 
-        # Get the silhouette of the reference RGB image by finding all non-white pixel values.
+        # Z axis + 0.1
+        # self.para_init = nn.Parameter(torch.from_numpy(
+        #     np.array([ 0.0096, -0.0080,  0.1969, -0.0414, -0.0131,  0.2820],
+        #              dtype=np.float32)).to(gpu_or_cpu),
+        #                               requires_grad=True)
+        
+
         image_ref = torch.from_numpy(image_ref.astype(np.float32))
         self.register_buffer('image_ref', image_ref)
 
     def forward(self, save_img_path): 
+        # # Get 2d center line from reference image (using skeletonization)
+        # centerline_ref = self.centerline_loss.get_raw_centerline(self.image_ref)
+        # print("centerline_ref shape: ", centerline_ref.shape)
+        # print("centerline_ref: ", centerline_ref)
+        
+        # # Plot the points in centerline_ref 
+        # fig1, ax1 = plt.subplots()
+        # ax1.plot(centerline_ref[:, 1], centerline_ref[:, 0])
+        # ax1.set_title('centerline_ref')
+        # ax1.set_xlim([0, 640])
+        # ax1.set_ylim([480, 0])
+        # plt.show()
+
+
         ###========================================================
         ### 1) RUNNING BEZIER CURVE CONSTRUCTION
         ###========================================================
         # Generate the Bezier curve cylinder mesh points
-        self.build_bezier.getBezierCurveCylinder(self.para_init, self.p_start, self.bezier_radius)
+        self.build_bezier.getBezierCurveCylinder(self.para_init, self.p_start)
+
+        # cylinder_mesh_points = self.build_bezier.cylinder_mesh_points
+        # print("cylinder_mesh_points max value: ", torch.max(cylinder_mesh_points))
+
+        # TEST LOSS TO SEE IF DIFFERENTIABLE UP TILL THIS POINT
+        # find average distance of all the points in cylinder_mesh_points to (0, 0, 0)
+        # loss = torch.mean(torch.norm(cylinder_mesh_points, dim=1))
 
         # Plot 3D Bezier Cylinder mesh points
         # self.build_bezier.plot3dBezierCylinder()
 
-        # Plot 2D projected Bezier Cylinder mesh points
+        # Get 2d projected Bezier Cylinder mesh points
         self.build_bezier.getCylinderMeshProjImg()
+
+        # Plot 2D projected Bezier Cylinder mesh points
+        # print("cylinder_mesh_points: ", self.build_bezier.cylinder_mesh_points)
         # self.build_bezier.draw2DCylinderImage()
 
-        ###========================================================
-        ### 2) Get 2D projected points image from bezier curve tube
-        ###========================================================
-        img_render = self.build_bezier.get2DCylinderImage()
+        # TEST LOSS TO SEE IF DIFFERENTIABLE UP TILL THIS POINT
+        # find average distance of all the points in cylinder_mesh_points to (0, 0)
+        # bezier_proj_img = self.build_bezier.bezier_proj_img
+        # print("bezier_proj_img:" , bezier_proj_img)
+        # print("Max value in bezier_proj_img: ", torch.max(bezier_proj_img))
+        # print("average value in bezier_proj_img", torch.mean(bezier_proj_img))
+        # loss = torch.mean(torch.norm(bezier_proj_img, dim=1))
+
+
         # TODO: add function to save image to file
 
         ###========================================================
-        ### 3) Compute Appearance loss between projected points image and reference image
+        ### 4) Compute Chamfer Distance loss between projected points image and reference image points
         ###========================================================
-        # Extract alpha channel from img_render, then convert to torch tensor
-        img_render_alpha = torch.from_numpy(img_render[0, ..., 3].astype(np.float32))
-        # print("img_render_alpha: ", img_render_alpha.shape)
-        # fig, ax = plt.subplots()
-        # ax.plot(img_render_alpha)
-        # ax.set_title('img_render_alpha')
-        # plt.imshow(img_render_alpha)
-        # plt.show()
-        
-
-        # Compute loss between rendered image and reference image
-        loss, img_render_binary = self.appearance_loss(img_render_alpha.unsqueeze(0), self.image_ref.unsqueeze(0))
-        # print("loss: ", loss)
-
-        # Make loss require grad
-        loss.requires_grad = True
+        # loss = self.chamfer_loss_whole_image(self.build_bezier.bezier_proj_img, self.image_ref)
+        loss = self.contour_chamfer_loss(self.build_bezier.bezier_proj_img, self.image_ref)
 
         # TODO: Plot the loss
 
@@ -127,6 +148,10 @@ if __name__ == '__main__':
     para_init = torch.tensor([0.01958988, 0.00195899, 0.09690406, -0.03142905, -0.0031429, 0.18200866], dtype=torch.float)
     p_start = torch.tensor([0.02, 0.002, 0.0])
 
+    # Z axis + 0.1
+    # p_start = torch.tensor([0.02, 0.002, 0.1000])
+
+
     case_naming = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/scripts/diff_render/blender_imgs/diff_render_1'
     img_save_path = case_naming + '.png'
     cc_specs_path = case_naming + '.npy'
@@ -143,18 +168,17 @@ if __name__ == '__main__':
         1) Grayscale the ref img, 
         2) threshold the grayscaled img, 
         3) Creates a binary image by replacing all 
-           pixel values equal to 255 with 1 (leaves
-           other pixel values unchanged)
+            pixel values equal to 255 with 1 (leaves
+            other pixel values unchanged)
     '''
     img_ref_rgb = cv2.imread(img_save_path)
     img_ref_gray = cv2.cvtColor(img_ref_rgb, cv2.COLOR_BGR2GRAY)
     (thresh, img_ref_thresh) = cv2.threshold(img_ref_gray, 80, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
     img_ref_binary = np.where(img_ref_thresh == 255, 1, img_ref_thresh)
 
-    
 
     ###========================================================
-    ### 3) SET UP OPTIMIZATION MODEL
+    ### 3) SET UP AND RUN OPTIMIZATION MODEL
     ###========================================================
     catheter_optimize_model = CatheterOptimizeModel(p_start, img_ref_binary, gpu_or_cpu).to(gpu_or_cpu)
 
@@ -163,10 +187,10 @@ if __name__ == '__main__':
     for name, param in catheter_optimize_model.named_parameters():
         print(f"{name}: requires_grad={param.requires_grad}")
 
-    optimizer = torch.optim.Adam(catheter_optimize_model.parameters(), lr=1e-4)
+    optimizer = torch.optim.Adam(catheter_optimize_model.parameters(), lr=1e-2)
 
     # Run the optimization loop
-    loop = tqdm(range(10))
+    loop = tqdm(range(200))
     for loop_id in loop:
         print("\n========================================================")
         print("loop_id: ", loop_id)
@@ -188,7 +212,7 @@ if __name__ == '__main__':
                 print(f"{name}: No gradient computed")
 
         # Run the backward pass
-        loss.backward()
+        loss.backward(retain_graph=True)
 
         # Print gradients for all parameters after backward pass
         print("Gradients AFTER BACKWARD PASS:")
@@ -201,9 +225,10 @@ if __name__ == '__main__':
         # Update the parameters
         optimizer.step()
 
+
         # Print and inspect the updated parameters
         for name, param in catheter_optimize_model.named_parameters():
-            print(f"Parameter: {name}, Updated Value: {param.data.norm().item()}")
+            print(f"Parameter: {name}, Updated Value: {param.data}")
 
 
         # Update the progress bar
