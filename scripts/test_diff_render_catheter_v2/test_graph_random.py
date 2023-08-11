@@ -18,36 +18,9 @@ if __name__ == "__main__":
     ###========================================================
     ### 2) VARIABLES FOR BEZIER CURVE CONSTRUCTION
     ###========================================================
-    # Initial parameters for training (para_init renamed to para_final for this example only because had to use it for graphing purposes)): 
+    # Parameters to plot: 
     p_start = torch.tensor([0.02, 0.002, 0.1000])
-    # para_final = torch.tensor([ 0.0096, -0.0080,  0.1969, -0.0414, -0.0131,  0.2820], dtype=torch.float, requires_grad=False)
-
-    # Params when trained for chamfer loss on whole image dimension (100 iterations, lr=1e-2). 
-    # The curve just ended up placing most the 2d projected points inside the image dimensions, 
-    # which was the expected behavior
-    # para_final = torch.tensor([ 0.0113, -0.0293,  0.1389,  0.1387, -0.1750,  0.8486], dtype=torch.float, requires_grad=False)
-
-    # Final params when trained for chamfer loss on contour of catheter in reference image (100 iterations, lr=1e-2).
-    para_final = torch.tensor([ 0.0273, -0.0428,  0.2051,  0.0192, -0.1376,  0.1987], dtype=torch.float, requires_grad=False)
-
-    # Final params when trained for chamfer loss on contour of catheter in reference image (100 iterations, lr=1e-2)
-    # BUT this time, using OG OG initial params from Fei's diff_render directory
-    # p_start = torch.tensor([0.02, 0.002, 0.0])
-    # para_init = torch.tensor([0.01958988, 0.00195899, 0.09690406, -0.03142905, -0.0031429, 0.18200866], dtype=torch.float, requires_grad=False)
-    # para_final = torch.tensor([ 0.1020,  0.0060,  0.0949, -0.0281, -0.0300,  0.2906], dtype=torch.float, requires_grad=False)
-
-    # Same inits as above, but 100 iterations, lr=1e-1
-    # para_final = torch.tensor([-0.5070,  1.5843,  0.6694, -0.3547,  1.3387,  0.9462], dtype=torch.float, requires_grad=False)
-
-    # Same inits as above, but 100 iterations, lr=1
-    # para_final = torch.tensor([ -0.6775,   9.5607, -13.2371, -14.0777,   5.5191,   5.3813], dtype=torch.float, requires_grad=False)
-
-    # Same inits as above, but 100 iterations, lr=1e-3
-    # para_final = torch.tensor([ 0.0441,  0.0060,  0.0807, -0.0454,  0.0036,  0.1973], dtype=torch.float, requires_grad=False)
-
-    # Same inits as above, but 200 iterations, lr=1e-2
-    # para_final = torch.tensor([ 0.1078,  0.0555,  0.1112, -0.0257,  0.0288,  0.3804], dtype=torch.float, requires_grad=False)
-
+    para_final = torch.tensor([ 0.0096, -0.0080,  0.1969, -0.0414, -0.0131,  0.2820], dtype=torch.float, requires_grad=False)
 
 
     case_naming = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/scripts/diff_render/blender_imgs/diff_render_1'
@@ -74,7 +47,7 @@ if __name__ == "__main__":
     build_bezier.draw2DCylinderImage()
 
     # Plot ALL 2d projected points
-    build_bezier.get2DCylinderImage()
+    build_bezier.plotAll2dProjPoints()
 
 
     og_plot_points = torch.tensor([[0.02, 0.002, 0.0], 
@@ -270,28 +243,25 @@ if __name__ == "__main__":
             [ 1.9400e-02,  2.8054e-03,  1.2921e-01],
             [ 1.9838e-02,  2.3652e-03,  1.2933e-01]]])
 
-    print(cylinder_mesh_points)
+    # print(cylinder_mesh_points)
 
-    # Plot cylinder_mesh_points using matplotlib
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-    ax.scatter(cylinder_mesh_points[:, :, 0], cylinder_mesh_points[:, :, 1], cylinder_mesh_points[:, :, 2])
-    ax.scatter(og_plot_points[:, 0], og_plot_points[:, 1], og_plot_points[:, 2], color='red')
+    # # Plot cylinder_mesh_points using matplotlib
+    # fig = plt.figure()
+    # ax = fig.add_subplot(111, projection='3d')
+    # ax.scatter(cylinder_mesh_points[:, :, 0], cylinder_mesh_points[:, :, 1], cylinder_mesh_points[:, :, 2])
+    # ax.scatter(og_plot_points[:, 0], og_plot_points[:, 1], og_plot_points[:, 2], color='red')
 
-    ax.set_xlabel('X')
-    ax.set_ylabel('Y')
-    ax.set_zlabel('Z')
-    ax.set_title('Cylinder Mesh Points')
+    # ax.set_xlabel('X')
+    # ax.set_ylabel('Y')
+    # ax.set_zlabel('Z')
+    # ax.set_title('Cylinder Mesh Points')
 
-    ax.set_xlim(-0.1, 0.1)
-    ax.set_ylim(-0.1, 0.1)
-    ax.set_zlim(-0.1, 0.1)
-    # ax.set_xlim(-0.5, 0.5)
-    # ax.set_ylim(-0.5, 0.5)
-    # ax.set_zlim(-0.5, 0.5)
+    # ax.set_xlim(-0.1, 0.1)
+    # ax.set_ylim(-0.1, 0.1)
+    # ax.set_zlim(-0.1, 0.1)
 
-    plt.tight_layout()
-    plt.show()
+    # plt.tight_layout()
+    # plt.show()
 
     # # Find L2 norm of all points in cylinder_mesh_points (in torch)
     # cylinder_mesh_points_norm = torch.norm(cylinder_mesh_points, dim=2)

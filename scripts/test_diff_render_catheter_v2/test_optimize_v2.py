@@ -24,7 +24,7 @@ import pdb
 from test_reconst_v2 import ConstructionBezier
 # from blender_catheter import BlenderRenderCatheter
 # from diff_render_catheter import DiffRenderCatheter
-from test_loss_define_v2 import AppearanceLoss, CenterlineLoss, ChamferLossWholeImage, ContourChamferLoss
+from test_loss_define_v2 import ChamferLossWholeImage, ContourChamferLoss
 
 import pytorch3d
 
@@ -47,10 +47,6 @@ class CatheterOptimizeModel(nn.Module):
         self.build_bezier.to(gpu_or_cpu)
         self.build_bezier.loadRawImage(img_save_path)
 
-        self.appearance_loss = AppearanceLoss(device=gpu_or_cpu)
-        self.appearance_loss.to(gpu_or_cpu)
-        self.centerline_loss = CenterlineLoss(device=gpu_or_cpu)
-        self.centerline_loss.to(gpu_or_cpu)
         self.chamfer_loss_whole_image = ChamferLossWholeImage(device=gpu_or_cpu)
         self.chamfer_loss_whole_image.to(gpu_or_cpu)
         self.contour_chamfer_loss = ContourChamferLoss(device=gpu_or_cpu)
@@ -63,29 +59,6 @@ class CatheterOptimizeModel(nn.Module):
             np.array([0.01958988, 0.00195899, 0.09690406, -0.03142905, -0.0031429, 0.18200866],
                      dtype=np.float32)).to(gpu_or_cpu),
                                       requires_grad=True)
-        # self.para_init = nn.Parameter(torch.from_numpy(
-        #     np.array([0.02958988, 0.01195899, 0.10690406, -0.02142905, 0.0068571, 0.19200866],
-        #         dtype=np.float32)).to(gpu_or_cpu),
-        #                         requires_grad=True)
-        # self.para_init = nn.Parameter(torch.from_numpy(
-        #     np.array([0.03958988, 0.02195899, 0.11690406, 0.11690406, 0.0168571, 0.20200866],
-        #         dtype=np.float32)).to(gpu_or_cpu),
-        #                         requires_grad=True)
-        # self.para_init = nn.Parameter(torch.from_numpy(
-        #     np.array([0.08958988, 0.07195899, 0.16690406, 0.16690406, 0.0668571, 0.25200866],
-        #         dtype=np.float32)).to(gpu_or_cpu),
-        #                         requires_grad=True)
-
-        # self.para_init = nn.Parameter(torch.from_numpy(
-        #     np.array([ 0.0096, -0.0080,  0.0869, -0.0414, -0.0131,  0.1720],
-        #              dtype=np.float32)).to(gpu_or_cpu),
-        #                               requires_grad=True)
-
-        # Z axis + 0.05
-        # self.para_init = nn.Parameter(torch.from_numpy(
-        #     np.array([ 0.0096, -0.0080,  0.1469, -0.0414, -0.0131,  0.2320],
-        #              dtype=np.float32)).to(gpu_or_cpu),
-        #                               requires_grad=True)
 
         # Z axis + 0.1
         # self.para_init = nn.Parameter(torch.from_numpy(
@@ -94,7 +67,6 @@ class CatheterOptimizeModel(nn.Module):
         #                               requires_grad=True)
         
 
-        # Get the silhouette of the reference RGB image by finding all non-white pixel values.
         image_ref = torch.from_numpy(image_ref.astype(np.float32))
         self.register_buffer('image_ref', image_ref)
 
@@ -129,8 +101,10 @@ class CatheterOptimizeModel(nn.Module):
         # Plot 3D Bezier Cylinder mesh points
         # self.build_bezier.plot3dBezierCylinder()
 
-        # Plot 2D projected Bezier Cylinder mesh points
+        # Get 2d projected Bezier Cylinder mesh points
         self.build_bezier.getCylinderMeshProjImg()
+
+        # Plot 2D projected Bezier Cylinder mesh points
         # print("cylinder_mesh_points: ", self.build_bezier.cylinder_mesh_points)
         # self.build_bezier.draw2DCylinderImage()
 
@@ -142,36 +116,14 @@ class CatheterOptimizeModel(nn.Module):
         # print("average value in bezier_proj_img", torch.mean(bezier_proj_img))
         # loss = torch.mean(torch.norm(bezier_proj_img, dim=1))
 
-        ###========================================================
-        ### 2) Get 2D projected points image from bezier curve tube
-        ###========================================================
-        # img_render = self.build_bezier.get2DCylinderImage()
+
         # TODO: add function to save image to file
-
-
-        ###========================================================
-        ### 3) Compute Appearance loss between projected points image and reference image
-        ###========================================================
-        # Extract alpha channel from img_render, then convert to torch tensor
-        # img_render_alpha = torch.from_numpy(img_render[0, ..., 3].astype(np.float32))
-        # print("img_render_alpha: ", img_render_alpha.shape)
-        # fig, ax = plt.subplots()
-        # ax.plot(img_render_alpha)
-        # ax.set_title('img_render_alpha')
-        # plt.imshow(img_render_alpha)
-        # plt.show()
 
         ###========================================================
         ### 4) Compute Chamfer Distance loss between projected points image and reference image points
         ###========================================================
         # loss = self.chamfer_loss_whole_image(self.build_bezier.bezier_proj_img, self.image_ref)
         loss = self.contour_chamfer_loss(self.build_bezier.bezier_proj_img, self.image_ref)
-
-        # Compute loss between rendered image and reference image
-        # loss, img_render_binary = self.appearance_loss(img_render_alpha.unsqueeze(0), self.image_ref.unsqueeze(0))
-
-        # Make loss require grad
-        # loss.requires_grad = True
 
         # TODO: Plot the loss
 
@@ -195,19 +147,9 @@ if __name__ == '__main__':
     ###========================================================
     para_init = torch.tensor([0.01958988, 0.00195899, 0.09690406, -0.03142905, -0.0031429, 0.18200866], dtype=torch.float)
     p_start = torch.tensor([0.02, 0.002, 0.0])
-    # p_start = torch.tensor([0.03, 0.012, 0.01])
-    # p_start = torch.tensor([0.04, 0.022, 0.02])
-    # p_start = torch.tensor([0.09, 0.072, 0.07])
-
-    # p_start = torch.tensor([ 0.0100, -0.0080, -0.0100])
-
-    # Z axis + 0.05
-    # p_start = torch.tensor([0.02, 0.002, 0.0500])
 
     # Z axis + 0.1
     # p_start = torch.tensor([0.02, 0.002, 0.1000])
-
-
 
 
     case_naming = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/scripts/diff_render/blender_imgs/diff_render_1'
@@ -235,9 +177,8 @@ if __name__ == '__main__':
     img_ref_binary = np.where(img_ref_thresh == 255, 1, img_ref_thresh)
 
 
-
     ###========================================================
-    ### 3) SET UP OPTIMIZATION MODEL
+    ### 3) SET UP AND RUN OPTIMIZATION MODEL
     ###========================================================
     catheter_optimize_model = CatheterOptimizeModel(p_start, img_ref_binary, gpu_or_cpu).to(gpu_or_cpu)
 
