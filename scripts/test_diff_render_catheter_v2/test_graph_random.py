@@ -1,8 +1,11 @@
 
+import cv2
+import numpy as np
 import torch
 import matplotlib.pyplot as plt
 
 from test_reconst_v2 import ConstructionBezier
+from test_loss_define_v2 import ChamferLossWholeImage, ContourChamferLoss, TipChamferLoss
 
 if __name__ == "__main__": 
 
@@ -22,12 +25,23 @@ if __name__ == "__main__":
     # p_start = torch.tensor([0.02, 0.002, 0.1000])
     # para_final = torch.tensor([0.02, 0.002, 0.1000, 0.0096, -0.0080,  0.1969, -0.0414, -0.0131,  0.2820], dtype=torch.float, requires_grad=False)
 
-    para_final = torch.tensor([ 0.0241,  0.0094,  0.0740,  0.0244, -0.0293,  0.1585,  0.0391, -0.1524,
-         0.2608], dtype=torch.float, requires_grad=False)
+    para_final = torch.tensor([ 0.0933, -0.0500,  0.0248, -0.0633,  0.0450,  0.2746, -0.1639, -0.2608,
+        -0.1226], dtype=torch.float, requires_grad=False)
 
 
     case_naming = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/scripts/diff_render/blender_imgs/diff_render_1'
     img_save_path = case_naming + '.png'
+
+    img_ref_rgb = cv2.imread(img_save_path)
+    img_ref_gray = cv2.cvtColor(img_ref_rgb, cv2.COLOR_BGR2GRAY)
+    (thresh, img_ref_thresh) = cv2.threshold(img_ref_gray, 80, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+    img_ref_binary = np.where(img_ref_thresh == 255, 1, img_ref_thresh)
+    image_ref = torch.from_numpy(img_ref_binary.astype(np.float32))
+
+
+    tip_chamfer_loss = TipChamferLoss(device=gpu_or_cpu)
+    tip_chamfer_loss.to(gpu_or_cpu)
+
 
     ###========================================================
     ### 3) SETTING UP BEZIER CURVE CONSTRUCTION
@@ -51,6 +65,24 @@ if __name__ == "__main__":
 
     # Plot ALL 2d projected points
     build_bezier.plotAll2dProjPoints()
+
+    ###========================================================
+    ### 4) PLOT 2D CENTERLINE FROM REFERENCE IMAGE
+    ###========================================================
+
+    # Get 2d center line from reference image (using skeletonization)
+    tip_chamfer_loss.get_raw_centerline(image_ref)
+    centerline_ref = tip_chamfer_loss.img_raw_skeleton
+    # print("centerline_ref shape: ", centerline_ref.shape)
+    # print("centerline_ref: ", centerline_ref)
+    
+    # Plot the points in centerline_ref 
+    fig1, ax1 = plt.subplots()
+    ax1.plot(centerline_ref[:, 1], centerline_ref[:, 0])
+    ax1.set_title('centerline_ref')
+    ax1.set_xlim([0, 640])
+    ax1.set_ylim([480, 0])
+    plt.show()
 
 
     og_plot_points = torch.tensor([[0.02, 0.002, 0.0], 

@@ -24,7 +24,7 @@ import pdb
 from test_reconst_v2 import ConstructionBezier
 # from blender_catheter import BlenderRenderCatheter
 # from diff_render_catheter import DiffRenderCatheter
-from test_loss_define_v2 import ChamferLossWholeImage, ContourChamferLoss
+from test_loss_define_v2 import ChamferLossWholeImage, ContourChamferLoss, TipChamferLoss
 
 import pytorch3d
 
@@ -51,6 +51,8 @@ class CatheterOptimizeModel(nn.Module):
         self.chamfer_loss_whole_image.to(gpu_or_cpu)
         self.contour_chamfer_loss = ContourChamferLoss(device=gpu_or_cpu)
         self.contour_chamfer_loss.to(gpu_or_cpu)
+        self.tip_chamfer_loss = TipChamferLoss(device=gpu_or_cpu)
+        self.tip_chamfer_loss.to(gpu_or_cpu)
 
         # Straight Line for initial parameters
         # self.para_init = nn.Parameter(torch.from_numpy(
@@ -121,7 +123,8 @@ class CatheterOptimizeModel(nn.Module):
         ### 4) Compute Chamfer Distance loss between projected points image and reference image points
         ###========================================================
         # loss = self.chamfer_loss_whole_image(self.build_bezier.bezier_proj_img, self.image_ref)
-        loss = self.contour_chamfer_loss(self.build_bezier.bezier_proj_img, self.image_ref)
+        # loss = self.contour_chamfer_loss(self.build_bezier.bezier_proj_img, self.image_ref)
+        loss = self.tip_chamfer_loss(self.build_bezier.bezier_proj_img, self.image_ref)
 
         # TODO: Plot the loss
 
@@ -189,7 +192,7 @@ if __name__ == '__main__':
     optimizer = torch.optim.Adam(catheter_optimize_model.parameters(), lr=1e-2)
 
     # Run the optimization loop
-    loop = tqdm(range(100))
+    loop = tqdm(range(200))
     for loop_id in loop:
         print("\n========================================================")
         print("loop_id: ", loop_id)
