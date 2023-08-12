@@ -860,22 +860,24 @@ class ConstructionBezier(nn.Module):
 ###################################################################################################
 
 
-    def getBezierCurveCylinder(self, para_gt, p_start): 
+    def getBezierCurveCylinder(self, para_gt): 
         '''
         Method to obtain bezier curve position, tangents, normals, and binormals. 
         Calls helper methods to plot these vectors. 
 
         Args: 
-            para_gt: ground truth parameters for bezier curve. Extract bezier control points from this.
-            p_start: starting point for bezier curve
+            para_gt: Ground truth parameters for bezier curve. Extract bezier control points from this. 
+                     i.e., para_gt[0:3] is starting point for bezier curve. 
             
             Deprecated: 
+                p_start: Starting point for bezier curve (used to be fixed and not updated by training)
                 control_pts (tensor of shape [4, 3]): contains the control points for the Bezier curve
         '''
         
         # Get control points from ground truth parameters
-        p_mid = para_gt[0:3]
-        p_end = para_gt[3:6]
+        p_start = para_gt[0:3]
+        p_mid = para_gt[3:6]
+        p_end = para_gt[6:9]
         p_c2 = 4 / 3 * p_mid - 1 / 3 * p_start
         p_c1 = 4 / 3 * p_mid - 1 / 3 * p_end
 
@@ -1015,8 +1017,8 @@ if __name__ == '__main__':
     ###========================================================
     ### 2) VARIABLES FOR BEZIER CURVE CONSTRUCTION
     ###========================================================
-    quadratic_test_para_init1 = torch.tensor([0.01958988, 0.00195899, 0.09690406, -0.03142905, -0.0031429, 0.18200866])
-    quadratic_test_para_start1 = torch.tensor([0.02, 0.002, 0.0])
+    quadratic_test_para_init1 = torch.tensor([0.02, 0.002, 0.0, 0.01958988, 0.00195899, 0.09690406, -0.03142905, -0.0031429, 0.18200866])
+    # quadratic_test_para_start1 = torch.tensor([0.02, 0.002, 0.0])
 
     case_naming = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/scripts/diff_render/blender_imgs/diff_render_1'
     img_save_path = case_naming + '.png'
@@ -1033,7 +1035,7 @@ if __name__ == '__main__':
     ### 4) RUNNING BEZIER CURVE CONSTRUCTION
     ###========================================================
     # Generate the Bezier curve cylinder mesh points
-    build_bezier.getBezierCurveCylinder(quadratic_test_para_init1, quadratic_test_para_start1, 0.01 * 0.1)
+    build_bezier.getBezierCurveCylinder(quadratic_test_para_init1)
 
     # Plot 3D Bezier Cylinder mesh points
     build_bezier.plot3dBezierCylinder()

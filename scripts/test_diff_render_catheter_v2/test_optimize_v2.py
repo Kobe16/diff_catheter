@@ -37,7 +37,7 @@ from tqdm.notebook import tqdm
 
 
 class CatheterOptimizeModel(nn.Module): 
-    def __init__(self, p_start, image_ref, gpu_or_cpu): 
+    def __init__(self, image_ref, gpu_or_cpu): 
         super().__init__()
 
         ###========================================================
@@ -52,19 +52,17 @@ class CatheterOptimizeModel(nn.Module):
         self.contour_chamfer_loss = ContourChamferLoss(device=gpu_or_cpu)
         self.contour_chamfer_loss.to(gpu_or_cpu)
 
-        self.p_start = p_start.to(gpu_or_cpu).detach()
-
         # Straight Line for initial parameters
-        self.para_init = nn.Parameter(torch.from_numpy(
-            np.array([0.01958988, 0.00195899, 0.09690406, -0.03142905, -0.0031429, 0.18200866],
-                     dtype=np.float32)).to(gpu_or_cpu),
-                                      requires_grad=True)
-
-        # Z axis + 0.1
         # self.para_init = nn.Parameter(torch.from_numpy(
-        #     np.array([ 0.0096, -0.0080,  0.1969, -0.0414, -0.0131,  0.2820],
+        #     np.array([0.02, 0.002, 0.0, 0.01958988, 0.00195899, 0.09690406, -0.03142905, -0.0031429, 0.18200866],
         #              dtype=np.float32)).to(gpu_or_cpu),
         #                               requires_grad=True)
+
+        # Z axis + 0.1
+        self.para_init = nn.Parameter(torch.from_numpy(
+            np.array([0.02, 0.002, 0.1, 0.0096, -0.0080,  0.1969, -0.0414, -0.0131,  0.2820],
+                     dtype=np.float32)).to(gpu_or_cpu),
+                                      requires_grad=True)
         
 
         image_ref = torch.from_numpy(image_ref.astype(np.float32))
@@ -89,7 +87,7 @@ class CatheterOptimizeModel(nn.Module):
         ### 1) RUNNING BEZIER CURVE CONSTRUCTION
         ###========================================================
         # Generate the Bezier curve cylinder mesh points
-        self.build_bezier.getBezierCurveCylinder(self.para_init, self.p_start)
+        self.build_bezier.getBezierCurveCylinder(self.para_init)
 
         # cylinder_mesh_points = self.build_bezier.cylinder_mesh_points
         # print("cylinder_mesh_points max value: ", torch.max(cylinder_mesh_points))
@@ -145,10 +143,11 @@ if __name__ == '__main__':
     ###========================================================
     ### 2) VARIABLES FOR BEZIER CURVE CONSTRUCTION
     ###========================================================
-    para_init = torch.tensor([0.01958988, 0.00195899, 0.09690406, -0.03142905, -0.0031429, 0.18200866], dtype=torch.float)
-    p_start = torch.tensor([0.02, 0.002, 0.0])
+    # para_init = torch.tensor([0.02, 0.002, 0.0, 0.01958988, 0.00195899, 0.09690406, -0.03142905, -0.0031429, 0.18200866], dtype=torch.float)
+    # p_start = torch.tensor([0.02, 0.002, 0.0])
 
     # Z axis + 0.1
+    # para_init = torch.tensor([0.02, 0.002, 0.1, 0.01958988, 0.00195899, 0.09690406, -0.03142905, -0.0031429, 0.18200866], dtype=torch.float)
     # p_start = torch.tensor([0.02, 0.002, 0.1000])
 
 
@@ -180,7 +179,7 @@ if __name__ == '__main__':
     ###========================================================
     ### 3) SET UP AND RUN OPTIMIZATION MODEL
     ###========================================================
-    catheter_optimize_model = CatheterOptimizeModel(p_start, img_ref_binary, gpu_or_cpu).to(gpu_or_cpu)
+    catheter_optimize_model = CatheterOptimizeModel(img_ref_binary, gpu_or_cpu).to(gpu_or_cpu)
 
 
     print("Model Parameters:")
@@ -190,7 +189,7 @@ if __name__ == '__main__':
     optimizer = torch.optim.Adam(catheter_optimize_model.parameters(), lr=1e-2)
 
     # Run the optimization loop
-    loop = tqdm(range(200))
+    loop = tqdm(range(100))
     for loop_id in loop:
         print("\n========================================================")
         print("loop_id: ", loop_id)

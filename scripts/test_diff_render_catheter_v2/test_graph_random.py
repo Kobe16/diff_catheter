@@ -19,8 +19,11 @@ if __name__ == "__main__":
     ### 2) VARIABLES FOR BEZIER CURVE CONSTRUCTION
     ###========================================================
     # Parameters to plot: 
-    p_start = torch.tensor([0.02, 0.002, 0.1000])
-    para_final = torch.tensor([ 0.0096, -0.0080,  0.1969, -0.0414, -0.0131,  0.2820], dtype=torch.float, requires_grad=False)
+    # p_start = torch.tensor([0.02, 0.002, 0.1000])
+    # para_final = torch.tensor([0.02, 0.002, 0.1000, 0.0096, -0.0080,  0.1969, -0.0414, -0.0131,  0.2820], dtype=torch.float, requires_grad=False)
+
+    para_final = torch.tensor([ 0.0241,  0.0094,  0.0740,  0.0244, -0.0293,  0.1585,  0.0391, -0.1524,
+         0.2608], dtype=torch.float, requires_grad=False)
 
 
     case_naming = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/scripts/diff_render/blender_imgs/diff_render_1'
@@ -37,7 +40,7 @@ if __name__ == "__main__":
     ### 4) RUNNING BEZIER CURVE CONSTRUCTION
     ###========================================================
     # Generate the Bezier curve cylinder mesh points
-    build_bezier.getBezierCurveCylinder(para_final, p_start)
+    build_bezier.getBezierCurveCylinder(para_final)
 
     # Plot 3D Bezier Cylinder mesh points
     build_bezier.plot3dBezierCylinder()

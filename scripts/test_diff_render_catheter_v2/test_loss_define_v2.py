@@ -209,12 +209,6 @@ class ContourChamferLoss(nn.Module):
 
 
 
-
-
-        
-    
-
-
 class CenterlineLoss(nn.Module):
 
     def __init__(self, device):
@@ -306,8 +300,8 @@ if __name__ == '__main__':
     ###========================================================
     ### 2) VARIABLES FOR BEZIER CURVE CONSTRUCTION
     ###========================================================
-    para_init = torch.tensor([0.01958988, 0.00195899, 0.09690406, -0.03142905, -0.0031429, 0.18200866], dtype=torch.float, requires_grad=False)
-    p_start = torch.tensor([0.02, 0.002, 0.0])
+    para_init = torch.tensor([0.02, 0.002, 0.0, 0.01958988, 0.00195899, 0.09690406, -0.03142905, -0.0031429, 0.18200866], dtype=torch.float, requires_grad=False)
+    # p_start = torch.tensor([0.02, 0.002, 0.0])
 
     case_naming = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/scripts/diff_render/blender_imgs/diff_render_1'
     img_save_path = case_naming + '.png'
@@ -337,7 +331,7 @@ if __name__ == '__main__':
     ### 4) RUNNING BEZIER CURVE CONSTRUCTION
     ###========================================================
     # Generate the Bezier curve cylinder mesh points
-    build_bezier.getBezierCurveCylinder(para_init, p_start, 0.01 * 0.1)
+    build_bezier.getBezierCurveCylinder(para_init)
 
     # Plot 3D Bezier Cylinder mesh points
     build_bezier.plot3dBezierCylinder()
