@@ -25,9 +25,8 @@ if __name__ == "__main__":
     # p_start = torch.tensor([0.02, 0.002, 0.1000])
     # para_final = torch.tensor([0.02, 0.002, 0.1000, 0.0096, -0.0080,  0.1969, -0.0414, -0.0131,  0.2820], dtype=torch.float, requires_grad=False)
 
-    para_final = torch.tensor([ 0.0933, -0.0500,  0.0248, -0.0633,  0.0450,  0.2746, -0.1639, -0.2608,
-        -0.1226], dtype=torch.float, requires_grad=False)
-
+    para_final = torch.tensor([ 0.0548,  0.0236,  0.1549,  0.0378, -0.0402,  0.2380,  0.0380, -0.1783,
+         0.2031], dtype=torch.float, requires_grad=False)
 
     case_naming = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/scripts/diff_render/blender_imgs/diff_render_1'
     img_save_path = case_naming + '.png'
@@ -78,6 +77,13 @@ if __name__ == "__main__":
     
     # Plot the points in centerline_ref 
     fig1, ax1 = plt.subplots()
+
+    '''
+    centerline_ref.shape: (# of points, 2)
+    centerline_ref[:, 1]: x coordinates (width)
+    centerline_ref[:, 0]: y coordinates (height)
+    '''
+
     ax1.plot(centerline_ref[:, 1], centerline_ref[:, 0])
     ax1.set_title('centerline_ref')
     ax1.set_xlim([0, 640])

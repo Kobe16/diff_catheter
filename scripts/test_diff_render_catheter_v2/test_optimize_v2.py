@@ -24,7 +24,7 @@ import pdb
 from test_reconst_v2 import ConstructionBezier
 # from blender_catheter import BlenderRenderCatheter
 # from diff_render_catheter import DiffRenderCatheter
-from test_loss_define_v2 import ChamferLossWholeImage, ContourChamferLoss, TipChamferLoss
+from test_loss_define_v2 import ChamferLossWholeImage, ContourChamferLoss, TipChamferLoss, BoundaryPointChamferLoss
 
 import pytorch3d
 
@@ -53,6 +53,8 @@ class CatheterOptimizeModel(nn.Module):
         self.contour_chamfer_loss.to(gpu_or_cpu)
         self.tip_chamfer_loss = TipChamferLoss(device=gpu_or_cpu)
         self.tip_chamfer_loss.to(gpu_or_cpu)
+        self.boundary_point_chamfer_loss = BoundaryPointChamferLoss(device=gpu_or_cpu)
+        self.boundary_point_chamfer_loss.to(gpu_or_cpu)
 
         # Straight Line for initial parameters
         # self.para_init = nn.Parameter(torch.from_numpy(
@@ -106,7 +108,7 @@ class CatheterOptimizeModel(nn.Module):
 
         # Plot 2D projected Bezier Cylinder mesh points
         # print("cylinder_mesh_points: ", self.build_bezier.cylinder_mesh_points)
-        # self.build_bezier.draw2DCylinderImage()
+        self.build_bezier.draw2DCylinderImage(self.image_ref, save_img_path)
 
         # TEST LOSS TO SEE IF DIFFERENTIABLE UP TILL THIS POINT
         # find average distance of all the points in cylinder_mesh_points to (0, 0)
@@ -120,11 +122,23 @@ class CatheterOptimizeModel(nn.Module):
         # TODO: add function to save image to file
 
         ###========================================================
-        ### 4) Compute Chamfer Distance loss between projected points image and reference image points
+        ### 4) Compute Loss using various Loss Functions
         ###========================================================
         # loss = self.chamfer_loss_whole_image(self.build_bezier.bezier_proj_img, self.image_ref)
-        # loss = self.contour_chamfer_loss(self.build_bezier.bezier_proj_img, self.image_ref)
-        loss = self.tip_chamfer_loss(self.build_bezier.bezier_proj_img, self.image_ref)
+        loss_contour = self.contour_chamfer_loss(self.build_bezier.bezier_proj_img, self.image_ref)
+        loss_tip = self.tip_chamfer_loss(self.build_bezier.bezier_proj_img, self.image_ref)
+        loss_boundary = self.boundary_point_chamfer_loss(self.build_bezier.bezier_proj_img, self.image_ref)
+
+        weight = torch.tensor([1.0, 1.0, 1.0])
+        loss = loss_contour * weight[0] + loss_tip * weight[1] + loss_boundary * weight[2]
+
+        print("-----------------------------------------------------------------")
+        print("loss_contour: ", loss_contour)
+        print("loss_tip: ", loss_tip)
+        print("loss_boundary: ", loss_boundary)
+        print("loss: ", loss)
+        print("-----------------------------------------------------------------")
+
 
         # TODO: Plot the loss
 
@@ -192,10 +206,14 @@ if __name__ == '__main__':
     optimizer = torch.optim.Adam(catheter_optimize_model.parameters(), lr=1e-2)
 
     # Run the optimization loop
-    loop = tqdm(range(200))
+    loop = tqdm(range(100))
     for loop_id in loop:
         print("\n========================================================")
         print("loop_id: ", loop_id)
+
+
+        save_img_path = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/scripts/test_diff_render_catheter_v2/rendered_imgs/' \
+            + 'render_' + str(loop_id) + '.jpg'
 
         # pdb.set_trace()
 
