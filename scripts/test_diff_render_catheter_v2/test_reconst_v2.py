@@ -122,11 +122,16 @@ class ConstructionBezier(nn.Module):
         self.ax = self.fig.add_subplot(111, projection='3d')
         self.epsilon = 1e-8
 
-        # Number of samples to take
+        # Number of samples to take along Bezier Curve
         self.num_samples = 20
+        # Number of samples to take on INSIDE of each circle
         self.samples_per_circle = 20
-        self.bezier_surface_resolution = 50
+        # Number of samples to take on OUTSIDE border of each circle
+        self.bezier_surface_resolution = 20
+        self.bezier_circle_angle_increment = (2 * math.pi) / self.bezier_surface_resolution
+
         self.cylinder_mesh_points = torch.zeros(self.num_samples, self.samples_per_circle, 3)
+        self.cylinder_surface_points = torch.zeros(self.num_samples, self.bezier_surface_resolution, 3)
 
         self.radius = 0.0015
         # self.radius = 0.003
@@ -394,6 +399,24 @@ class ConstructionBezier(nn.Module):
 
         return rand_circle_point
 
+    def getCircleBorderPoint(self, radius, angle, center_point, normal_vec, binormal_vec):
+        '''
+        Method to calculate point on the border of a circle in 3-dimensions. 
+
+        Args: 
+            radius: radius value of circle
+            center_point (tensor): center point of circle; i.e., current point on Bezier curve
+            normal_vec: normal vector at that point on Bezier curve
+            binormal_vec: binormal vector at that point on Bezier curve
+        '''
+        
+        # Convert angle to a torch tensor to use torch's trig functions
+        angle += torch.tensor(1)
+
+        circle_border_point = center_point + radius * (torch.cos(angle)) * normal_vec + radius * (torch.sin(angle)) * binormal_vec
+
+        return circle_border_point
+
     def plot3dPoints(self, show_vector_lines, plot_bezier_points, pos_bezier, set_of_vectors=None): 
         '''
         Method to plot Bezier vectors using MatPlotLib
@@ -451,12 +474,12 @@ class ConstructionBezier(nn.Module):
     def plot3dBezierCylinder(self): 
         # Get Cylinder mesh points
         for i, (pos_vec) in enumerate(self.pos_bezier): 
-            for j in range(self.samples_per_circle): 
+            for j in range(self.samples_per_circle + self.bezier_surface_resolution): 
 
                 # Plot cylinder mesh points
-                self.ax.scatter(pos_vec[0].detach().numpy() + self.cylinder_mesh_points[i, j, 0].detach().numpy(), 
-                                pos_vec[1].detach().numpy() + self.cylinder_mesh_points[i, j, 1].detach().numpy(), 
-                                pos_vec[2].detach().numpy() + self.cylinder_mesh_points[i, j, 2].detach().numpy())
+                self.ax.scatter(pos_vec[0].detach().numpy() + self.cylinder_mesh_and_surface_points[i, j, 0].detach().numpy(), 
+                                pos_vec[1].detach().numpy() + self.cylinder_mesh_and_surface_points[i, j, 1].detach().numpy(), 
+                                pos_vec[2].detach().numpy() + self.cylinder_mesh_and_surface_points[i, j, 2].detach().numpy())
 
         # Set up axes for 3d plot
         self.ax.set_box_aspect([1,1,1]) 
@@ -722,7 +745,8 @@ class ConstructionBezier(nn.Module):
         # print("\n cylinder_mesh: \n" + str(self.cylinder_mesh_points))
 
         # Convert 3D world position to camera frame
-        pos_bezier_H = torch.cat((self.cylinder_mesh_points, torch.ones(self.num_samples, self.samples_per_circle, 1)), dim=2)
+        # pos_bezier_H = torch.cat((self.cylinder_mesh_points, torch.ones(self.num_samples, self.samples_per_circle, 1)), dim=2)
+        pos_bezier_H = torch.cat((self.cylinder_mesh_and_surface_points, torch.ones(self.num_samples, self.samples_per_circle + self.bezier_surface_resolution, 1)), dim=2)
         # print("\n pos_bezier_H shape: " + str(pos_bezier_H.size()))
         # print("\n pos_bezier_H: \n" + str(pos_bezier_H))
 
@@ -740,7 +764,9 @@ class ConstructionBezier(nn.Module):
         # print("\n self.bezier_pos_cam[:, 1:, :] shape: " + str(self.bezier_pos_cam[:, 1:, :].size()))
         # print("\n self.bezier_pos_cam[:, 1:, :]: \n" + str(self.bezier_pos_cam[:, 1:, :]))
 
-        self.bezier_proj_img = self.getProjCylPointCam(self.bezier_pos_cam[:, 1:, :], self.cam_K)
+        # Changed self.bezier_pos_centerline_cam[1:] to self.bezier_pos_centerline_cam[:] to include the first point
+        # self.bezier_proj_img = self.getProjCylPointCam(self.bezier_pos_cam[:, 1:, :], self.cam_K)
+        self.bezier_proj_img = self.getProjCylPointCam(self.bezier_pos_cam[:, :, :], self.cam_K)
         # print("\n self.bezier_proj_img shape: " + str(self.bezier_proj_img.size()))
         # print("\n self.bezier_proj_img average value: " + str(torch.mean(self.bezier_proj_img)))
         # print("\n self.bezier_proj_img: " + str(self.bezier_proj_img))
@@ -1056,7 +1082,18 @@ class ConstructionBezier(nn.Module):
                 binormal_vec_normalized = self.getNormalizedVectors(binormal_vec)
                 self.cylinder_mesh_points[i, j, :] = self.getRandCirclePoint(self.radius, pos_vec, normal_vec_normalized, binormal_vec_normalized)
     
+        # Get Cylinder surface points. Combine into cylinder mesh points. 
+        for i, (pos_vec, normal_vec, binormal_vec) in enumerate(zip(self.pos_bezier, self.normal_bezier, self.binormal_bezier)):
+            for j in range(self.bezier_surface_resolution):
+                normal_vec_normalized = self.getNormalizedVectors(normal_vec)
+                binormal_vec_normalized = self.getNormalizedVectors(binormal_vec)
+                self.cylinder_surface_points[i, j, :] = self.getCircleBorderPoint(self.radius, j * self.bezier_circle_angle_increment, pos_vec, normal_vec_normalized, binormal_vec_normalized)
 
+        # Stack self.cylinder_mesh_points and self.cylinder_surface_points on top of each other in dimension 1
+        self.cylinder_mesh_and_surface_points = torch.cat((self.cylinder_mesh_points, self.cylinder_surface_points), dim=1)
+
+        print("self.cylinder_mesh_and_surface_points.shape: " + str(self.cylinder_mesh_and_surface_points.shape))
+        print("self.cylinder_mesh_and_surface_points: " + str(self.cylinder_mesh_and_surface_points))
 
 
 ###################################################################################################
