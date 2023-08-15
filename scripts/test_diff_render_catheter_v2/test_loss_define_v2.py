@@ -432,6 +432,170 @@ class BoundaryPointChamferLoss(nn.Module):
         self.img_raw_skeleton = torch.as_tensor(img_raw_skeleton).float()
 
 
+class TipDistanceLoss(nn.Module): 
+
+    def __init__(self, device): 
+        super(TipDistanceLoss, self).__init__()
+        self.device = device
+
+    def forward(self, img_render_centerline_points, img_ref): 
+
+        # Get reference image catheter's skeleton, tip, and boundary
+        self.get_raw_centerline(img_ref)
+        
+        # Flip the x and y coordinates in self.img_raw_skeleton: i.e., [[69, 43]] -> [[43, 69]]
+        self.img_raw_skeleton = self.img_raw_skeleton.flip(1)
+
+        ref_tip_point = self.img_raw_skeleton[0, :]
+        print("ref_tip_point: ", ref_tip_point)
+
+        proj_tip_point = img_render_centerline_points[-1, :]
+        print("proj_tip_point: ", proj_tip_point)
+
+        tip_distance_loss = torch.mean((proj_tip_point - ref_tip_point) ** 2)
+
+        return tip_distance_loss
+
+
+    def get_raw_centerline(self, img_ref): 
+        '''
+        Method to get the raw centerline of the catheter from the reference image.
+        '''
+
+        # convert to numpy array
+        img_ref = img_ref.cpu().detach().numpy().copy()
+
+        img_height = img_ref.shape[0]
+        img_width = img_ref.shape[1]
+
+        # perform skeletonization, need to extend the boundary of the image because of the way the skeletonization algorithm works (it looks at the 8 neighbors of each pixel)
+        extend_dim = int(60)
+        img_thresh_extend = np.zeros((img_height, img_width + extend_dim))
+        img_thresh_extend[0:img_height, 0:img_width] = img_ref / 1.0
+
+        # get the left boundary of the image
+        left_boundarylineA_id = np.squeeze(np.argwhere(img_thresh_extend[:, img_width - 1]))
+        left_boundarylineB_id = np.squeeze(np.argwhere(img_thresh_extend[:, img_width - 10]))
+
+        # get the center of the left boundary
+        extend_vec_pt1_center = np.array([img_width, (left_boundarylineA_id[0] + left_boundarylineA_id[-1]) / 2])
+        extend_vec_pt2_center = np.array(
+            [img_width - 5, (left_boundarylineB_id[0] + left_boundarylineB_id[-1]) / 2])
+        exten_vec = extend_vec_pt2_center - extend_vec_pt1_center
+
+        # avoid dividing by zero
+        if exten_vec[1] == 0:
+            exten_vec[1] += 0.00000001
+
+        # get the slope and intercept of the line
+        k_extend = exten_vec[0] / exten_vec[1]
+        b_extend_up = img_width - k_extend * left_boundarylineA_id[0]
+        b_extend_dw = img_width - k_extend * left_boundarylineA_id[-1]
+
+        # extend the ROI to the right, so that the skeletonization algorithm could be able to get the centerline
+        # then it could be able to get the intersection point with boundary
+        extend_ROI = np.array([
+            np.array([img_width, left_boundarylineA_id[0]]),
+            np.array([img_width, left_boundarylineA_id[-1]]),
+            np.array([img_width + extend_dim,
+                      int(((img_width + extend_dim) - b_extend_dw) / k_extend)]),
+            np.array([img_width + extend_dim,
+                      int(((img_width + extend_dim) - b_extend_up) / k_extend)])
+        ])
+
+        # fill the extended ROI with 1
+        img_thresh_extend = cv2.fillPoly(img_thresh_extend, [extend_ROI], 1)
+
+        # skeletonize the image
+        skeleton = skimage_morphology.skeletonize(img_thresh_extend)
+
+        # get the centerline of the image
+        img_raw_skeleton = np.argwhere(skeleton[:, 0:img_width] == 1)
+
+        self.img_raw_skeleton = torch.as_tensor(img_raw_skeleton).float()
+
+class BoundaryPointDistanceLoss(nn.Module): 
+
+    def __init__(self, device): 
+        super(BoundaryPointDistanceLoss, self).__init__()
+        self.device = device
+
+    def forward(self, img_render_centerline_points, img_ref): 
+
+        # Get reference image catheter's skeleton, tip, and boundary
+        self.get_raw_centerline(img_ref)
+        
+        # Flip the x and y coordinates in self.img_raw_skeleton: i.e., [[69, 43]] -> [[43, 69]]
+        self.img_raw_skeleton = self.img_raw_skeleton.flip(1)
+
+        ref_boundary_point = self.img_raw_skeleton[-1, :]
+        print("ref_tip_point: ", ref_boundary_point)
+
+        proj_boundary_point = img_render_centerline_points[0, :]
+        print("proj_tip_point: ", proj_boundary_point)
+
+        tip_distance_loss = torch.mean((proj_boundary_point - ref_boundary_point) ** 2)
+
+        return tip_distance_loss
+
+
+    def get_raw_centerline(self, img_ref): 
+        '''
+        Method to get the raw centerline of the catheter from the reference image.
+        '''
+
+        # convert to numpy array
+        img_ref = img_ref.cpu().detach().numpy().copy()
+
+        img_height = img_ref.shape[0]
+        img_width = img_ref.shape[1]
+
+        # perform skeletonization, need to extend the boundary of the image because of the way the skeletonization algorithm works (it looks at the 8 neighbors of each pixel)
+        extend_dim = int(60)
+        img_thresh_extend = np.zeros((img_height, img_width + extend_dim))
+        img_thresh_extend[0:img_height, 0:img_width] = img_ref / 1.0
+
+        # get the left boundary of the image
+        left_boundarylineA_id = np.squeeze(np.argwhere(img_thresh_extend[:, img_width - 1]))
+        left_boundarylineB_id = np.squeeze(np.argwhere(img_thresh_extend[:, img_width - 10]))
+
+        # get the center of the left boundary
+        extend_vec_pt1_center = np.array([img_width, (left_boundarylineA_id[0] + left_boundarylineA_id[-1]) / 2])
+        extend_vec_pt2_center = np.array(
+            [img_width - 5, (left_boundarylineB_id[0] + left_boundarylineB_id[-1]) / 2])
+        exten_vec = extend_vec_pt2_center - extend_vec_pt1_center
+
+        # avoid dividing by zero
+        if exten_vec[1] == 0:
+            exten_vec[1] += 0.00000001
+
+        # get the slope and intercept of the line
+        k_extend = exten_vec[0] / exten_vec[1]
+        b_extend_up = img_width - k_extend * left_boundarylineA_id[0]
+        b_extend_dw = img_width - k_extend * left_boundarylineA_id[-1]
+
+        # extend the ROI to the right, so that the skeletonization algorithm could be able to get the centerline
+        # then it could be able to get the intersection point with boundary
+        extend_ROI = np.array([
+            np.array([img_width, left_boundarylineA_id[0]]),
+            np.array([img_width, left_boundarylineA_id[-1]]),
+            np.array([img_width + extend_dim,
+                      int(((img_width + extend_dim) - b_extend_dw) / k_extend)]),
+            np.array([img_width + extend_dim,
+                      int(((img_width + extend_dim) - b_extend_up) / k_extend)])
+        ])
+
+        # fill the extended ROI with 1
+        img_thresh_extend = cv2.fillPoly(img_thresh_extend, [extend_ROI], 1)
+
+        # skeletonize the image
+        skeleton = skimage_morphology.skeletonize(img_thresh_extend)
+
+        # get the centerline of the image
+        img_raw_skeleton = np.argwhere(skeleton[:, 0:img_width] == 1)
+
+        self.img_raw_skeleton = torch.as_tensor(img_raw_skeleton).float()
+
 class CenterlineLoss(nn.Module):
 
     def __init__(self, device):

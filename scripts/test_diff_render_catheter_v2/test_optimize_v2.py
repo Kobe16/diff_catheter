@@ -24,7 +24,7 @@ import pdb
 from test_reconst_v2 import ConstructionBezier
 # from blender_catheter import BlenderRenderCatheter
 # from diff_render_catheter import DiffRenderCatheter
-from test_loss_define_v2 import ChamferLossWholeImage, ContourChamferLoss, TipChamferLoss, BoundaryPointChamferLoss
+from test_loss_define_v2 import ChamferLossWholeImage, ContourChamferLoss, TipChamferLoss, BoundaryPointChamferLoss, TipDistanceLoss, BoundaryPointDistanceLoss
 
 import pytorch3d
 
@@ -55,6 +55,10 @@ class CatheterOptimizeModel(nn.Module):
         self.tip_chamfer_loss.to(gpu_or_cpu)
         self.boundary_point_chamfer_loss = BoundaryPointChamferLoss(device=gpu_or_cpu)
         self.boundary_point_chamfer_loss.to(gpu_or_cpu)
+        self.tip_distance_loss = TipDistanceLoss(device=gpu_or_cpu)
+        self.tip_distance_loss.to(gpu_or_cpu)
+        self.boundary_point_distance_loss = BoundaryPointDistanceLoss(device=gpu_or_cpu)
+        self.boundary_point_distance_loss.to(gpu_or_cpu)
 
         # Straight Line for initial parameters
         # self.para_init = nn.Parameter(torch.from_numpy(
@@ -106,9 +110,6 @@ class CatheterOptimizeModel(nn.Module):
         # Get 2d projected Bezier Cylinder mesh points
         self.build_bezier.getCylinderMeshProjImg()
 
-        # Plot 2D projected Bezier Cylinder mesh points
-        # print("cylinder_mesh_points: ", self.build_bezier.cylinder_mesh_points)
-        self.build_bezier.draw2DCylinderImage(self.image_ref, save_img_path)
 
         # TEST LOSS TO SEE IF DIFFERENTIABLE UP TILL THIS POINT
         # find average distance of all the points in cylinder_mesh_points to (0, 0)
@@ -118,6 +119,17 @@ class CatheterOptimizeModel(nn.Module):
         # print("average value in bezier_proj_img", torch.mean(bezier_proj_img))
         # loss = torch.mean(torch.norm(bezier_proj_img, dim=1))
 
+        # Get 2d projected Bezier centerline (position) points
+        self.build_bezier.getBezierProjImg()
+
+        # TEST LOSS TO SEE IF DIFFERENTIABLE UP TILL THIS POINT
+        # find average distance of all points in bezier_proj_centerline_img to (0, 0)
+        # bezier_proj_centerline_img = self.build_bezier.bezier_proj_centerline_img
+        # loss = torch.mean(torch.norm(bezier_proj_centerline_img, dim=1))
+
+        # Plot 2D projected Bezier Cylinder mesh points
+        # print("cylinder_mesh_points: ", self.build_bezier.cylinder_mesh_points)
+        self.build_bezier.draw2DCylinderImage(self.image_ref, save_img_path)
 
         # TODO: add function to save image to file
 
@@ -128,14 +140,19 @@ class CatheterOptimizeModel(nn.Module):
         loss_contour = self.contour_chamfer_loss(self.build_bezier.bezier_proj_img, self.image_ref)
         loss_tip = self.tip_chamfer_loss(self.build_bezier.bezier_proj_img, self.image_ref)
         loss_boundary = self.boundary_point_chamfer_loss(self.build_bezier.bezier_proj_img, self.image_ref)
+        loss_tip_distance = self.tip_distance_loss(self.build_bezier.bezier_proj_centerline_img, self.image_ref)
+        loss_boundary_point_distance_loss = self.boundary_point_distance_loss(self.build_bezier.bezier_proj_img, self.image_ref)
 
-        weight = torch.tensor([1.0, 1.0, 1.0])
-        loss = loss_contour * weight[0] + loss_tip * weight[1] + loss_boundary * weight[2]
+        weight = torch.tensor([1.0, 0.0, 0.0, 1.0, 1.0])
+        loss = loss_contour * weight[0] + loss_tip * weight[1] + loss_boundary * weight[2] + loss_tip_distance * weight[3] + loss_boundary_point_distance_loss * weight[4]
+
 
         print("-----------------------------------------------------------------")
         print("loss_contour: ", loss_contour)
         print("loss_tip: ", loss_tip)
         print("loss_boundary: ", loss_boundary)
+        print("loss_tip_distance: ", loss_tip_distance)
+        print("loss_boundary_point_distance_loss: ", loss_boundary_point_distance_loss)
         print("loss: ", loss)
         print("-----------------------------------------------------------------")
 

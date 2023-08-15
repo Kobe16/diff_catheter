@@ -25,8 +25,7 @@ if __name__ == "__main__":
     # p_start = torch.tensor([0.02, 0.002, 0.1000])
     # para_final = torch.tensor([0.02, 0.002, 0.1000, 0.0096, -0.0080,  0.1969, -0.0414, -0.0131,  0.2820], dtype=torch.float, requires_grad=False)
 
-    para_final = torch.tensor([ 0.0548,  0.0236,  0.1549,  0.0378, -0.0402,  0.2380,  0.0380, -0.1783,
-         0.2031], dtype=torch.float, requires_grad=False)
+    para_final = torch.tensor([ 0.0414,  0.0178,  0.1202,  0.0352, -0.0387,  0.2151,  0.0528, -0.1564, 0.1830], dtype=torch.float, requires_grad=False)
 
     case_naming = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/scripts/diff_render/blender_imgs/diff_render_1'
     img_save_path = case_naming + '.png'
@@ -58,8 +57,13 @@ if __name__ == "__main__":
     # Plot 3D Bezier Cylinder mesh points
     build_bezier.plot3dBezierCylinder()
 
-    # Plot 2D projected Bezier Cylinder mesh points
+    # Get 2D projected Bezier Cylinder mesh points
     build_bezier.getCylinderMeshProjImg()
+
+    # Get 2D projected Bezier Centerline points (tip and boundary points)
+    build_bezier.getBezierProjImg()
+
+    # Plot 2D projected Bezier Cylinder mesh points and tip/boundary points
     build_bezier.draw2DCylinderImage()
 
     # Plot ALL 2d projected points
