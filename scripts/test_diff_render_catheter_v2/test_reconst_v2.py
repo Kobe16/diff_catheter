@@ -17,7 +17,9 @@ from matplotlib.gridspec import GridSpec
 
 from skimage.transform import hough_line, hough_line_peaks
 from skimage.feature import canny
-from skimage.morphology import skeletonize
+# from skimage.morphology import skeletonize
+import skimage.morphology as skimage_morphology
+
 
 from shapely.geometry import Point
 from shapely.geometry.polygon import Polygon
@@ -121,12 +123,13 @@ class ConstructionBezier(nn.Module):
         self.epsilon = 1e-8
 
         # Number of samples to take
-        self.num_samples = 9
+        self.num_samples = 20
         self.samples_per_circle = 20
         self.bezier_surface_resolution = 50
         self.cylinder_mesh_points = torch.zeros(self.num_samples, self.samples_per_circle, 3)
 
         self.radius = 0.0015
+        # self.radius = 0.003
 
         self.setCameraParams(camera_settings.a, camera_settings.b, camera_settings.center_x, camera_settings.center_y,
                              camera_settings.image_size_x, camera_settings.image_size_y, camera_settings.extrinsics,
@@ -372,7 +375,7 @@ class ConstructionBezier(nn.Module):
 ###################################################################################################
 ###################################################################################################
 
-    # Functions for plotting the 3D Bezier curve (3d model vectors or 3d model cylinder)
+    # Functions for plotting the 3D Bezier curve (3d model vectors or 3d model cylinder) and 2D helpers
 
     def getRandCirclePoint(self, radius, center_point, normal_vec, binormal_vec): 
         '''
@@ -465,10 +468,70 @@ class ConstructionBezier(nn.Module):
 
         plt.show()
 
+    def get_raw_centerline_ref(self, img_ref): 
+        '''
+        Method to get the raw centerline of the catheter from the reference image.
+        In this file, only used in draw2DCylinderImage() method to get the centerline 
+        of the catheter in the reference image for show. 
+        '''
+
+        # convert to numpy array
+        img_ref = img_ref.cpu().detach().numpy().copy()
+
+        img_height = img_ref.shape[0]
+        img_width = img_ref.shape[1]
+
+        # perform skeletonization, need to extend the boundary of the image because of the way the skeletonization algorithm works (it looks at the 8 neighbors of each pixel)
+        extend_dim = int(60)
+        img_thresh_extend = np.zeros((img_height, img_width + extend_dim))
+        img_thresh_extend[0:img_height, 0:img_width] = img_ref / 1.0
+
+        # get the left boundary of the image
+        left_boundarylineA_id = np.squeeze(np.argwhere(img_thresh_extend[:, img_width - 1]))
+        left_boundarylineB_id = np.squeeze(np.argwhere(img_thresh_extend[:, img_width - 10]))
+
+        # get the center of the left boundary
+        extend_vec_pt1_center = np.array([img_width, (left_boundarylineA_id[0] + left_boundarylineA_id[-1]) / 2])
+        extend_vec_pt2_center = np.array(
+            [img_width - 5, (left_boundarylineB_id[0] + left_boundarylineB_id[-1]) / 2])
+        exten_vec = extend_vec_pt2_center - extend_vec_pt1_center
+
+        # avoid dividing by zero
+        if exten_vec[1] == 0:
+            exten_vec[1] += 0.00000001
+
+        # get the slope and intercept of the line
+        k_extend = exten_vec[0] / exten_vec[1]
+        b_extend_up = img_width - k_extend * left_boundarylineA_id[0]
+        b_extend_dw = img_width - k_extend * left_boundarylineA_id[-1]
+
+        # extend the ROI to the right, so that the skeletonization algorithm could be able to get the centerline
+        # then it could be able to get the intersection point with boundary
+        extend_ROI = np.array([
+            np.array([img_width, left_boundarylineA_id[0]]),
+            np.array([img_width, left_boundarylineA_id[-1]]),
+            np.array([img_width + extend_dim,
+                      int(((img_width + extend_dim) - b_extend_dw) / k_extend)]),
+            np.array([img_width + extend_dim,
+                      int(((img_width + extend_dim) - b_extend_up) / k_extend)])
+        ])
+
+        # fill the extended ROI with 1
+        img_thresh_extend = cv2.fillPoly(img_thresh_extend, [extend_ROI], 1)
+
+        # skeletonize the image
+        skeleton = skimage_morphology.skeletonize(img_thresh_extend)
+
+        # get the centerline of the image
+        img_raw_skeleton = np.argwhere(skeleton[:, 0:img_width] == 1)
+
+        self.img_raw_skeleton = torch.as_tensor(img_raw_skeleton).float()
+
 ###################################################################################################
 ###################################################################################################
 ###################################################################################################
 # FROM diff-render directory: 
+# Functions to get Bezier position points projected image 
 
     def loadRawImage(self, img_path):
         raw_img_rgb = cv2.imread(img_path)
@@ -477,7 +540,7 @@ class ConstructionBezier(nn.Module):
             raw_img_rgb, (int(raw_img_rgb.shape[1] / self.img_ownscale), int(raw_img_rgb.shape[0] / self.img_ownscale)))
         self.raw_img_gray = cv2.cvtColor(raw_img_rgb, cv2.COLOR_RGB2GRAY)
 
-    def getBezierProjImg(self, pos_bezier, der_bezier, double_der_bezier):
+    def getBezierProjImg(self, pos_bezier=None, der_bezier=None, double_der_bezier=None):
         '''
         Convert positions, tangents, normals to camera frame
         '''
@@ -485,48 +548,37 @@ class ConstructionBezier(nn.Module):
         # TODO: convert 3d world cyinder mesh points to camera frame
 
         # Convert 3D world position to camera frame
-        pos_bezier_H = torch.cat((pos_bezier, torch.ones(self.num_samples, 1)), dim=1)
+        pos_bezier_H = torch.cat((self.pos_bezier, torch.ones(self.num_samples, 1)), dim=1)
 
         bezier_pos_cam_H = torch.transpose(torch.matmul(self.cam_RT_H, torch.transpose(pos_bezier_H, 0, 1)), 0, 1)
         # self.bezier_pos_cam = bezier_pos_cam_H[1:, :-1]  ## without including the first point
-        self.bezier_pos_cam = bezier_pos_cam_H[:, :-1]
+
+        # :-1 needed to remove homogeneous coord from each 3d point
+        self.bezier_pos_centerline_cam = bezier_pos_cam_H[:, :-1]
 
 
-        # Convert 3D world first derivative to camera frame
-        der_bezier_H = torch.cat((der_bezier, torch.zeros((self.num_samples, 1))), dim=1)
-        bezier_der_cam_H = torch.transpose(torch.matmul(self.cam_RT_H, torch.transpose(der_bezier_H[1:, :], 0, 1)), 0,
-                                           1)
-        self.bezier_der_cam = bezier_der_cam_H[:, :-1]
-
-                
-        # Convert 3D world second derivative to camera frame
-        der_snd_bezier_H = torch.cat((double_der_bezier, torch.zeros((self.num_samples, 1))), dim=1)
-        bezier_snd_der_cam_H = torch.transpose(
-            torch.matmul(self.cam_RT_H, torch.transpose(der_snd_bezier_H[1:, :], 0, 1)), 0, 1)
-        self.bezier_snd_der_cam = bezier_snd_der_cam_H[:, :-1]
-
-
-        self.bezier_proj_img = self.getProjPointCam(self.bezier_pos_cam[1:], self.cam_K)
+        # Changed self.bezier_pos_centerline_cam[1:] to self.bezier_pos_centerline_cam[:] to include the first point
+        self.bezier_proj_centerline_img = self.getProjPointCam(self.bezier_pos_centerline_cam[:], self.cam_K)
     
     def getProjPointCam(self, p, cam_K):
         # p is of size R^(Nx3)
         if p.shape == (3, ):
             p = torch.unsqueeze(p, dim=0)
 
-        print("\n p[:, :-1] shape: " + str(p[:, :-1].size()))
-        print("\n p[:, :-1]: \n" + str(p[:, :-1]))
+        # print("\n p[:, :-1] shape: " + str(p[:, :-1].size()))
+        # print("\n p[:, :-1]: \n" + str(p[:, :-1]))
 
-        print("\n p[:, -1] shape: " + str(p[:, -1].size()))
-        print("\n p[:, -1]: \n" + str(p[:, -1]))
+        # print("\n p[:, -1] shape: " + str(p[:, -1].size()))
+        # print("\n p[:, -1]: \n" + str(p[:, -1]))
         
         divide_z = torch.div(torch.transpose(p[:, :-1], 0, 1), p[:, -1])
-        print("\n divide_z 1 shape: " + str(divide_z.size()))
-        print("\n divide_z 1: \n" + str(divide_z))
+        # print("\n divide_z 1 shape: " + str(divide_z.size()))
+        # print("\n divide_z 1: \n" + str(divide_z))
 
-        print("\n p.shape[0]: " + str(p.shape[0]))
+        # print("\n p.shape[0]: " + str(p.shape[0]))
         divide_z = torch.cat((divide_z, torch.ones(1, p.shape[0])), dim=0).double()
-        print("\n divide_z 2 shape: " + str(divide_z.size()))
-        print("\n divide_z 2: \n" + str(divide_z))
+        # print("\n divide_z 2 shape: " + str(divide_z.size()))
+        # print("\n divide_z 2: \n" + str(divide_z))
 
         return torch.transpose(torch.matmul(cam_K, divide_z)[:-1, :], 0, 1)
 
@@ -593,6 +645,7 @@ class ConstructionBezier(nn.Module):
         # cv2.imwrite('./gradient_steps_imgs/tangent_draw_img_rgb_' + str(self.GD_Iteration) + '.jpg', tangent_draw_img_rgb)
 
         return centerline_draw_img_rgb, tangent_draw_img_rgb
+
 
 ###################################################################################################
 ###################################################################################################
@@ -679,6 +732,7 @@ class ConstructionBezier(nn.Module):
 
         # self.bezier_pos_cam = bezier_pos_cam_H[1:, :-1]  ## without including the first point
 
+        # :-1 needed to remove homogeneous coord from each 3d point
         self.bezier_pos_cam = bezier_pos_cam_H[:, :, :-1]
         # print("\n self.bezier_pos_cam shape: " + str(self.bezier_pos_cam.size()))
         # print("\n self.bezier_pos_cam: \n" + str(self.bezier_pos_cam))
@@ -715,18 +769,30 @@ class ConstructionBezier(nn.Module):
 
         return torch.transpose(torch.matmul(cam_K, divide_z)[:, :-1, :], 1, 2)
     
-    def draw2DCylinderImage(self):  
+    def draw2DCylinderImage(self, img_ref=None, save_img_path=None):  
+        '''
+        Draw projected cylinder image onto the reference image. 
+            - Loop through each circle, loop through each point in the circle,
+              and draw the projected point onto the reference image using OpenCV.
+
+        Draw projected tip and boundary points onto the reference image.
+            - Use the first and last points of self.bezier_proj_centerline_img to draw the tip and boundary points.
+        
+        Draw the reference centerline and the reference tip and boundary points of the centerline. 
+            - Given centerline points, loop through each point, and draw 1 red pixel on the reference image.
+            - At the first and last point, draw a large green circle to indicate the tip and boundary points.
+        '''
 
         ## numpy copy
         segmented_circle_draw_img_rgb = self.raw_img_rgb.copy()
-
         ## torch clone
         bezier_proj_img = torch.clone(self.bezier_proj_img)
 
+        print("segmented_circle_draw_img_rgb.shape: ", segmented_circle_draw_img_rgb.shape)
         print("segmented_circle_draw_img_rgb.shape[0]: ", segmented_circle_draw_img_rgb.shape[0])
         print("segmented_circle_draw_img_rgb.shape[1]: ", segmented_circle_draw_img_rgb.shape[1])
 
-        # Draw circle segment
+
         for i in range(bezier_proj_img.shape[0] - 1): 
             red_val = randrange(0, 255)
             green_val = randrange(0, 255)
@@ -741,7 +807,39 @@ class ConstructionBezier(nn.Module):
                 p1 = (int(bezier_proj_img[i, j, 0]), int(bezier_proj_img[i, j, 1]))
                 # print("\n p1: " + str(p1))
                 cv2.circle(segmented_circle_draw_img_rgb, p1, 1, (red_val, green_val, blue_val), -1)
+
         
+        # Draw reference tip and boundary points onto the reference image.
+        if img_ref is not None:
+            # Get centerline, draw it, and draw tip and boundary points
+            self.get_raw_centerline_ref(img_ref)
+
+            # Use torch to flip the x and y coordinates in self.img_raw_skeleton: i.e., [[69, 43], [1, 2]] -> [[43, 69], [2, 1]]
+            self.img_raw_skeleton = self.img_raw_skeleton.flip(1)
+
+            # PLOT skeleton point by point, inserting a red pixel at each point
+            for i in range(self.img_raw_skeleton.shape[0]):
+                p1 = (int(self.img_raw_skeleton[i, 0]), int(self.img_raw_skeleton[i, 1]))
+                # print("\n p1: " + str(p1))
+                # cv2.circle(segmented_circle_draw_img_rgb, p1, 1, (0, 0, 255), -1)
+                segmented_circle_draw_img_rgb[p1[1], p1[0], :] = (0, 0, 255)
+                                                                
+            # Draw tip and boundary points
+            tip_point = (int(self.img_raw_skeleton[0, 0]), int(self.img_raw_skeleton[0, 1]))
+            boundary_point = (int(self.img_raw_skeleton[-1, 0]), int(self.img_raw_skeleton[-1, 1]))
+
+            cv2.circle(segmented_circle_draw_img_rgb, tip_point, 5, (0, 0, 255), -1)
+            cv2.circle(segmented_circle_draw_img_rgb, boundary_point, 5, (0, 0, 255), -1)
+
+
+        # Draw projected tip and boundary points onto the reference image.
+        pTip = (int(self.bezier_proj_centerline_img[0, 0]), int(self.bezier_proj_centerline_img[0, 1]))
+        pBoundary = (int(self.bezier_proj_centerline_img[-1, 0]), int(self.bezier_proj_centerline_img[-1, 1]))
+        cv2.circle(segmented_circle_draw_img_rgb, pTip, 2, (255, 0, 0), -1)
+        cv2.circle(segmented_circle_draw_img_rgb, pBoundary, 2, (255, 0, 0), -1)
+
+
+
 
         # ---------------
         # plot with
@@ -751,8 +849,12 @@ class ConstructionBezier(nn.Module):
         ax.imshow(cv2.cvtColor(segmented_circle_draw_img_rgb, cv2.COLOR_BGR2RGB))
         ax.set_title('2D Bezier Cylinder Mesh')
 
-        plt.tight_layout()
-        plt.show()
+        # plt.tight_layout()
+        # plt.show()
+
+        if save_img_path is not None:
+            plt.savefig(save_img_path)
+            plt.close(fig)
 
         return segmented_circle_draw_img_rgb       
     
@@ -766,9 +868,16 @@ class ConstructionBezier(nn.Module):
         for i in range(self.bezier_proj_img.shape[0] - 1): 
             for j in range(self.bezier_proj_img.shape[1] - 1):
                 ax.scatter(self.bezier_proj_img[i, j, 0].detach().numpy(), self.bezier_proj_img[i, j, 1].detach().numpy(), c='b', s=1)
+        
+        # Plot bezier_proj_centerline_img TIP and BOUNDARY points
+        ax.scatter(self.bezier_proj_centerline_img[0, 0].detach().numpy(), self.bezier_proj_centerline_img[0, 1].detach().numpy(), c='r', s=5)
+        ax.scatter(self.bezier_proj_centerline_img[-1, 0].detach().numpy(), self.bezier_proj_centerline_img[-1, 1].detach().numpy(), c='r', s=5)
+
+
         ax.set_title('2D Bezier Cylinder Mesh -- ALL POINTS')
         plt.tight_layout()
         plt.show()
+
 
 # [DON'T USE THIS] Function to get 2D image of the cylinder mesh, without reference image 
 
@@ -860,22 +969,28 @@ class ConstructionBezier(nn.Module):
 ###################################################################################################
 
 
-    def getBezierCurveCylinder(self, para_gt, p_start): 
+    def getBezierCurveCylinder(self, para_gt): 
         '''
         Method to obtain bezier curve position, tangents, normals, and binormals. 
         Calls helper methods to plot these vectors. 
 
         Args: 
-            para_gt: ground truth parameters for bezier curve. Extract bezier control points from this.
-            p_start: starting point for bezier curve
+            para_gt: Ground truth parameters for bezier curve. Extract bezier control points from this. 
+                     i.e., para_gt[0:3] is starting point for bezier curve. 
             
             Deprecated: 
+                p_start: Starting point for bezier curve (used to be fixed and not updated by training)
                 control_pts (tensor of shape [4, 3]): contains the control points for the Bezier curve
         '''
         
         # Get control points from ground truth parameters
-        p_mid = para_gt[0:3]
-        p_end = para_gt[3:6]
+        # P0 = para_gt[0:3]
+        # P1 = para_gt[3:6]
+        # P2 = para_gt[6:9]
+
+        p_start = para_gt[0:3]
+        p_mid = para_gt[3:6]
+        p_end = para_gt[6:9]
         p_c2 = 4 / 3 * p_mid - 1 / 3 * p_start
         p_c1 = 4 / 3 * p_mid - 1 / 3 * p_end
 
@@ -1015,8 +1130,8 @@ if __name__ == '__main__':
     ###========================================================
     ### 2) VARIABLES FOR BEZIER CURVE CONSTRUCTION
     ###========================================================
-    quadratic_test_para_init1 = torch.tensor([0.01958988, 0.00195899, 0.09690406, -0.03142905, -0.0031429, 0.18200866])
-    quadratic_test_para_start1 = torch.tensor([0.02, 0.002, 0.0])
+    quadratic_test_para_init1 = torch.tensor([0.02, 0.002, 0.0, 0.01958988, 0.00195899, 0.09690406, -0.03142905, -0.0031429, 0.18200866])
+    # quadratic_test_para_start1 = torch.tensor([0.02, 0.002, 0.0])
 
     case_naming = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/scripts/diff_render/blender_imgs/diff_render_1'
     img_save_path = case_naming + '.png'
@@ -1033,7 +1148,7 @@ if __name__ == '__main__':
     ### 4) RUNNING BEZIER CURVE CONSTRUCTION
     ###========================================================
     # Generate the Bezier curve cylinder mesh points
-    build_bezier.getBezierCurveCylinder(quadratic_test_para_init1, quadratic_test_para_start1, 0.01 * 0.1)
+    build_bezier.getBezierCurveCylinder(quadratic_test_para_init1)
 
     # Plot 3D Bezier Cylinder mesh points
     build_bezier.plot3dBezierCylinder()

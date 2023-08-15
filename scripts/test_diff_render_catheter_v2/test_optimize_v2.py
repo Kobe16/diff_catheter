@@ -24,7 +24,7 @@ import pdb
 from test_reconst_v2 import ConstructionBezier
 # from blender_catheter import BlenderRenderCatheter
 # from diff_render_catheter import DiffRenderCatheter
-from test_loss_define_v2 import ChamferLossWholeImage, ContourChamferLoss
+from test_loss_define_v2 import ChamferLossWholeImage, ContourChamferLoss, TipChamferLoss, BoundaryPointChamferLoss, TipDistanceLoss, BoundaryPointDistanceLoss
 
 import pytorch3d
 
@@ -37,7 +37,7 @@ from tqdm.notebook import tqdm
 
 
 class CatheterOptimizeModel(nn.Module): 
-    def __init__(self, p_start, image_ref, gpu_or_cpu): 
+    def __init__(self, image_ref, gpu_or_cpu): 
         super().__init__()
 
         ###========================================================
@@ -51,20 +51,26 @@ class CatheterOptimizeModel(nn.Module):
         self.chamfer_loss_whole_image.to(gpu_or_cpu)
         self.contour_chamfer_loss = ContourChamferLoss(device=gpu_or_cpu)
         self.contour_chamfer_loss.to(gpu_or_cpu)
-
-        self.p_start = p_start.to(gpu_or_cpu).detach()
+        self.tip_chamfer_loss = TipChamferLoss(device=gpu_or_cpu)
+        self.tip_chamfer_loss.to(gpu_or_cpu)
+        self.boundary_point_chamfer_loss = BoundaryPointChamferLoss(device=gpu_or_cpu)
+        self.boundary_point_chamfer_loss.to(gpu_or_cpu)
+        self.tip_distance_loss = TipDistanceLoss(device=gpu_or_cpu)
+        self.tip_distance_loss.to(gpu_or_cpu)
+        self.boundary_point_distance_loss = BoundaryPointDistanceLoss(device=gpu_or_cpu)
+        self.boundary_point_distance_loss.to(gpu_or_cpu)
 
         # Straight Line for initial parameters
-        self.para_init = nn.Parameter(torch.from_numpy(
-            np.array([0.01958988, 0.00195899, 0.09690406, -0.03142905, -0.0031429, 0.18200866],
-                     dtype=np.float32)).to(gpu_or_cpu),
-                                      requires_grad=True)
-
-        # Z axis + 0.1
         # self.para_init = nn.Parameter(torch.from_numpy(
-        #     np.array([ 0.0096, -0.0080,  0.1969, -0.0414, -0.0131,  0.2820],
+        #     np.array([0.02, 0.002, 0.0, 0.01958988, 0.00195899, 0.09690406, -0.03142905, -0.0031429, 0.18200866],
         #              dtype=np.float32)).to(gpu_or_cpu),
         #                               requires_grad=True)
+
+        # Z axis + 0.1
+        self.para_init = nn.Parameter(torch.from_numpy(
+            np.array([0.02, 0.002, 0.1, 0.0096, -0.0080,  0.1969, -0.0414, -0.0131,  0.2820],
+                     dtype=np.float32)).to(gpu_or_cpu),
+                                      requires_grad=True)
         
 
         image_ref = torch.from_numpy(image_ref.astype(np.float32))
@@ -89,7 +95,7 @@ class CatheterOptimizeModel(nn.Module):
         ### 1) RUNNING BEZIER CURVE CONSTRUCTION
         ###========================================================
         # Generate the Bezier curve cylinder mesh points
-        self.build_bezier.getBezierCurveCylinder(self.para_init, self.p_start)
+        self.build_bezier.getBezierCurveCylinder(self.para_init)
 
         # cylinder_mesh_points = self.build_bezier.cylinder_mesh_points
         # print("cylinder_mesh_points max value: ", torch.max(cylinder_mesh_points))
@@ -104,9 +110,6 @@ class CatheterOptimizeModel(nn.Module):
         # Get 2d projected Bezier Cylinder mesh points
         self.build_bezier.getCylinderMeshProjImg()
 
-        # Plot 2D projected Bezier Cylinder mesh points
-        # print("cylinder_mesh_points: ", self.build_bezier.cylinder_mesh_points)
-        # self.build_bezier.draw2DCylinderImage()
 
         # TEST LOSS TO SEE IF DIFFERENTIABLE UP TILL THIS POINT
         # find average distance of all the points in cylinder_mesh_points to (0, 0)
@@ -116,14 +119,43 @@ class CatheterOptimizeModel(nn.Module):
         # print("average value in bezier_proj_img", torch.mean(bezier_proj_img))
         # loss = torch.mean(torch.norm(bezier_proj_img, dim=1))
 
+        # Get 2d projected Bezier centerline (position) points
+        self.build_bezier.getBezierProjImg()
+
+        # TEST LOSS TO SEE IF DIFFERENTIABLE UP TILL THIS POINT
+        # find average distance of all points in bezier_proj_centerline_img to (0, 0)
+        # bezier_proj_centerline_img = self.build_bezier.bezier_proj_centerline_img
+        # loss = torch.mean(torch.norm(bezier_proj_centerline_img, dim=1))
+
+        # Plot 2D projected Bezier Cylinder mesh points
+        # print("cylinder_mesh_points: ", self.build_bezier.cylinder_mesh_points)
+        self.build_bezier.draw2DCylinderImage(self.image_ref, save_img_path)
 
         # TODO: add function to save image to file
 
         ###========================================================
-        ### 4) Compute Chamfer Distance loss between projected points image and reference image points
+        ### 4) Compute Loss using various Loss Functions
         ###========================================================
         # loss = self.chamfer_loss_whole_image(self.build_bezier.bezier_proj_img, self.image_ref)
-        loss = self.contour_chamfer_loss(self.build_bezier.bezier_proj_img, self.image_ref)
+        loss_contour = self.contour_chamfer_loss(self.build_bezier.bezier_proj_img, self.image_ref)
+        loss_tip = self.tip_chamfer_loss(self.build_bezier.bezier_proj_img, self.image_ref)
+        loss_boundary = self.boundary_point_chamfer_loss(self.build_bezier.bezier_proj_img, self.image_ref)
+        loss_tip_distance = self.tip_distance_loss(self.build_bezier.bezier_proj_centerline_img, self.image_ref)
+        loss_boundary_point_distance_loss = self.boundary_point_distance_loss(self.build_bezier.bezier_proj_img, self.image_ref)
+
+        weight = torch.tensor([1.0, 0.0, 0.0, 1.0, 1.0])
+        loss = loss_contour * weight[0] + loss_tip * weight[1] + loss_boundary * weight[2] + loss_tip_distance * weight[3] + loss_boundary_point_distance_loss * weight[4]
+
+
+        print("-----------------------------------------------------------------")
+        print("loss_contour: ", loss_contour)
+        print("loss_tip: ", loss_tip)
+        print("loss_boundary: ", loss_boundary)
+        print("loss_tip_distance: ", loss_tip_distance)
+        print("loss_boundary_point_distance_loss: ", loss_boundary_point_distance_loss)
+        print("loss: ", loss)
+        print("-----------------------------------------------------------------")
+
 
         # TODO: Plot the loss
 
@@ -145,10 +177,11 @@ if __name__ == '__main__':
     ###========================================================
     ### 2) VARIABLES FOR BEZIER CURVE CONSTRUCTION
     ###========================================================
-    para_init = torch.tensor([0.01958988, 0.00195899, 0.09690406, -0.03142905, -0.0031429, 0.18200866], dtype=torch.float)
-    p_start = torch.tensor([0.02, 0.002, 0.0])
+    # para_init = torch.tensor([0.02, 0.002, 0.0, 0.01958988, 0.00195899, 0.09690406, -0.03142905, -0.0031429, 0.18200866], dtype=torch.float)
+    # p_start = torch.tensor([0.02, 0.002, 0.0])
 
     # Z axis + 0.1
+    # para_init = torch.tensor([0.02, 0.002, 0.1, 0.01958988, 0.00195899, 0.09690406, -0.03142905, -0.0031429, 0.18200866], dtype=torch.float)
     # p_start = torch.tensor([0.02, 0.002, 0.1000])
 
 
@@ -180,7 +213,7 @@ if __name__ == '__main__':
     ###========================================================
     ### 3) SET UP AND RUN OPTIMIZATION MODEL
     ###========================================================
-    catheter_optimize_model = CatheterOptimizeModel(p_start, img_ref_binary, gpu_or_cpu).to(gpu_or_cpu)
+    catheter_optimize_model = CatheterOptimizeModel(img_ref_binary, gpu_or_cpu).to(gpu_or_cpu)
 
 
     print("Model Parameters:")
@@ -190,10 +223,14 @@ if __name__ == '__main__':
     optimizer = torch.optim.Adam(catheter_optimize_model.parameters(), lr=1e-2)
 
     # Run the optimization loop
-    loop = tqdm(range(200))
+    loop = tqdm(range(100))
     for loop_id in loop:
         print("\n========================================================")
         print("loop_id: ", loop_id)
+
+
+        save_img_path = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/scripts/test_diff_render_catheter_v2/rendered_imgs/' \
+            + 'render_' + str(loop_id) + '.jpg'
 
         # pdb.set_trace()
 

@@ -1,8 +1,11 @@
 
+import cv2
+import numpy as np
 import torch
 import matplotlib.pyplot as plt
 
 from test_reconst_v2 import ConstructionBezier
+from test_loss_define_v2 import ChamferLossWholeImage, ContourChamferLoss, TipChamferLoss
 
 if __name__ == "__main__": 
 
@@ -19,12 +22,24 @@ if __name__ == "__main__":
     ### 2) VARIABLES FOR BEZIER CURVE CONSTRUCTION
     ###========================================================
     # Parameters to plot: 
-    p_start = torch.tensor([0.02, 0.002, 0.1000])
-    para_final = torch.tensor([ 0.0096, -0.0080,  0.1969, -0.0414, -0.0131,  0.2820], dtype=torch.float, requires_grad=False)
+    # p_start = torch.tensor([0.02, 0.002, 0.1000])
+    # para_final = torch.tensor([0.02, 0.002, 0.1000, 0.0096, -0.0080,  0.1969, -0.0414, -0.0131,  0.2820], dtype=torch.float, requires_grad=False)
 
+    para_final = torch.tensor([ 0.0414,  0.0178,  0.1202,  0.0352, -0.0387,  0.2151,  0.0528, -0.1564, 0.1830], dtype=torch.float, requires_grad=False)
 
     case_naming = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/scripts/diff_render/blender_imgs/diff_render_1'
     img_save_path = case_naming + '.png'
+
+    img_ref_rgb = cv2.imread(img_save_path)
+    img_ref_gray = cv2.cvtColor(img_ref_rgb, cv2.COLOR_BGR2GRAY)
+    (thresh, img_ref_thresh) = cv2.threshold(img_ref_gray, 80, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+    img_ref_binary = np.where(img_ref_thresh == 255, 1, img_ref_thresh)
+    image_ref = torch.from_numpy(img_ref_binary.astype(np.float32))
+
+
+    tip_chamfer_loss = TipChamferLoss(device=gpu_or_cpu)
+    tip_chamfer_loss.to(gpu_or_cpu)
+
 
     ###========================================================
     ### 3) SETTING UP BEZIER CURVE CONSTRUCTION
@@ -37,17 +52,47 @@ if __name__ == "__main__":
     ### 4) RUNNING BEZIER CURVE CONSTRUCTION
     ###========================================================
     # Generate the Bezier curve cylinder mesh points
-    build_bezier.getBezierCurveCylinder(para_final, p_start)
+    build_bezier.getBezierCurveCylinder(para_final)
 
     # Plot 3D Bezier Cylinder mesh points
     build_bezier.plot3dBezierCylinder()
 
-    # Plot 2D projected Bezier Cylinder mesh points
+    # Get 2D projected Bezier Cylinder mesh points
     build_bezier.getCylinderMeshProjImg()
+
+    # Get 2D projected Bezier Centerline points (tip and boundary points)
+    build_bezier.getBezierProjImg()
+
+    # Plot 2D projected Bezier Cylinder mesh points and tip/boundary points
     build_bezier.draw2DCylinderImage()
 
     # Plot ALL 2d projected points
     build_bezier.plotAll2dProjPoints()
+
+    ###========================================================
+    ### 4) PLOT 2D CENTERLINE FROM REFERENCE IMAGE
+    ###========================================================
+
+    # Get 2d center line from reference image (using skeletonization)
+    tip_chamfer_loss.get_raw_centerline(image_ref)
+    centerline_ref = tip_chamfer_loss.img_raw_skeleton
+    # print("centerline_ref shape: ", centerline_ref.shape)
+    # print("centerline_ref: ", centerline_ref)
+    
+    # Plot the points in centerline_ref 
+    fig1, ax1 = plt.subplots()
+
+    '''
+    centerline_ref.shape: (# of points, 2)
+    centerline_ref[:, 1]: x coordinates (width)
+    centerline_ref[:, 0]: y coordinates (height)
+    '''
+
+    ax1.plot(centerline_ref[:, 1], centerline_ref[:, 0])
+    ax1.set_title('centerline_ref')
+    ax1.set_xlim([0, 640])
+    ax1.set_ylim([480, 0])
+    plt.show()
 
 
     og_plot_points = torch.tensor([[0.02, 0.002, 0.0], 
