@@ -995,7 +995,7 @@ class ConstructionBezier(nn.Module):
 ###################################################################################################
 
 
-    def getBezierCurveCylinder(self, para_gt): 
+    def getBezierCurveCylinder(self, p_start, para_gt): 
         '''
         Method to obtain bezier curve position, tangents, normals, and binormals. 
         Calls helper methods to plot these vectors. 
@@ -1010,19 +1010,19 @@ class ConstructionBezier(nn.Module):
         '''
         
         # Get control points from ground truth parameters
-        # P0 = para_gt[0:3]
-        # P1 = para_gt[3:6]
-        # P2 = para_gt[6:9]
-
-        p_start = para_gt[0:3]
-        p_mid = para_gt[3:6]
-        p_end = para_gt[6:9]
-        p_c2 = 4 / 3 * p_mid - 1 / 3 * p_start
-        p_c1 = 4 / 3 * p_mid - 1 / 3 * p_end
-
         P0 = p_start
-        P1 = p_c1
-        P2 = p_c2
+        P1 = para_gt[0:3]
+        P2 = para_gt[3:6]
+
+        # p_start = para_gt[0:3]
+        # p_mid = para_gt[3:6]
+        # p_end = para_gt[6:9]
+        # p_c2 = 4 / 3 * p_mid - 1 / 3 * p_start
+        # p_c1 = 4 / 3 * p_mid - 1 / 3 * p_end
+
+        # P0 = p_start
+        # P1 = p_c1
+        # P2 = p_c2
 
         # P0 = control_pts[0, :]
         # P1 = control_pts[1, :]
@@ -1168,7 +1168,7 @@ if __name__ == '__main__':
     ### 2) VARIABLES FOR BEZIER CURVE CONSTRUCTION
     ###========================================================
     quadratic_test_para_init1 = torch.tensor([0.02, 0.002, 0.0, 0.01958988, 0.00195899, 0.09690406, -0.03142905, -0.0031429, 0.18200866])
-    # quadratic_test_para_start1 = torch.tensor([0.02, 0.002, 0.0])
+    quadratic_test_para_start1 = torch.tensor([0.02, 0.002, 0.0])
 
     case_naming = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/scripts/diff_render/blender_imgs/diff_render_1'
     img_save_path = case_naming + '.png'
@@ -1185,7 +1185,7 @@ if __name__ == '__main__':
     ### 4) RUNNING BEZIER CURVE CONSTRUCTION
     ###========================================================
     # Generate the Bezier curve cylinder mesh points
-    build_bezier.getBezierCurveCylinder(quadratic_test_para_init1)
+    build_bezier.getBezierCurveCylinder(quadratic_test_para_start1, quadratic_test_para_init1)
 
     # Plot 3D Bezier Cylinder mesh points
     build_bezier.plot3dBezierCylinder()

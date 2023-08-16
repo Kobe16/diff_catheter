@@ -93,16 +93,19 @@ if __name__ == '__main__':
     ### 2) DECLARE VARIABLES FOR RENDERING CATHETER
     ################################################################
 
-    case_naming = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/scripts/test_diff_render_catheter_v2/blender_imgs/test_rendered_catheter'
+    case_naming = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/scripts/test_diff_render_catheter_v2/blender_imgs/test_catheter_gt1'
     img_save_path = case_naming + '.png'
     cc_specs_path = case_naming + '.npy'
     target_specs_path = None
     viewpoint_mode = 1
     transparent_mode = 0
 
+    # OG ground truth parameters: 
+    # p_start = torch.tensor([0.02, 0.002, 0.0])
     # para_gt = torch.tensor([0.02003904, 0.0016096, 0.10205799, 0.02489567, -0.04695673, 0.196168896], dtype=torch.float)
-    para_gt = torch.tensor([0.02003904, 0.0016096, 0.10205799, 0.02489567, -0.04695673, 0.196168896], dtype=torch.float)
-    p_start = torch.tensor([0.02, 0.002, 0.0])
+
+    p_start = torch.tensor([0.02, 0.008, 0.054])
+    para_gt = torch.tensor([0.02003904, 0.0016096, 0.13205799, 0.00489567, -0.03695673, 0.196168896], dtype=torch.float)
 
     ################################################################
     ### 3) USE RENDERING CATHETER OBJECT TO RENDER CATHETER

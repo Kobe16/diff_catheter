@@ -37,7 +37,7 @@ from tqdm.notebook import tqdm
 
 
 class CatheterOptimizeModel(nn.Module): 
-    def __init__(self, image_ref, gpu_or_cpu): 
+    def __init__(self, p_start, image_ref, gpu_or_cpu): 
         super().__init__()
 
         ###========================================================
@@ -66,9 +66,10 @@ class CatheterOptimizeModel(nn.Module):
         #              dtype=np.float32)).to(gpu_or_cpu),
         #                               requires_grad=True)
 
-        # Z axis + 0.1
+        self.p_start = p_start.to(gpu_or_cpu).detach()
+
         self.para_init = nn.Parameter(torch.from_numpy(
-            np.array([0.02, 0.002, 0.1, 0.0096, -0.0080,  0.1969, -0.0414, -0.0131,  0.2820],
+            np.array([0.0365, 0.0036,  0.1202,  0.0056, -0.0166, 0.1645],
                      dtype=np.float32)).to(gpu_or_cpu),
                                       requires_grad=True)
         
@@ -95,7 +96,7 @@ class CatheterOptimizeModel(nn.Module):
         ### 1) RUNNING BEZIER CURVE CONSTRUCTION
         ###========================================================
         # Generate the Bezier curve cylinder mesh points
-        self.build_bezier.getBezierCurveCylinder(self.para_init)
+        self.build_bezier.getBezierCurveCylinder(self.p_start, self.para_init)
 
         # cylinder_mesh_points = self.build_bezier.cylinder_mesh_points
         # print("cylinder_mesh_points max value: ", torch.max(cylinder_mesh_points))
@@ -179,22 +180,20 @@ if __name__ == '__main__':
     ###========================================================
     # para_init = torch.tensor([0.02, 0.002, 0.0, 0.01958988, 0.00195899, 0.09690406, -0.03142905, -0.0031429, 0.18200866], dtype=torch.float)
     # p_start = torch.tensor([0.02, 0.002, 0.0])
+    p_start = torch.tensor([0.02, 0.008, 0.054])
+
 
     # Z axis + 0.1
     # para_init = torch.tensor([0.02, 0.002, 0.1, 0.01958988, 0.00195899, 0.09690406, -0.03142905, -0.0031429, 0.18200866], dtype=torch.float)
     # p_start = torch.tensor([0.02, 0.002, 0.1000])
 
 
-    case_naming = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/scripts/diff_render/blender_imgs/diff_render_1'
+    case_naming = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/scripts/test_diff_render_catheter_v2/blender_imgs/test_catheter_gt1'
     img_save_path = case_naming + '.png'
     cc_specs_path = case_naming + '.npy'
     target_specs_path = None
     viewpoint_mode = 1
     transparent_mode = 0
-
-    img_id = 0
-    save_img_path = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/scripts/diff_render/blender_imgs/' + 'torch3d_render_' + str(
-        img_id) + '.jpg'  # save the figure to file
 
     '''
     Create binary mask of catheter: 
@@ -213,7 +212,7 @@ if __name__ == '__main__':
     ###========================================================
     ### 3) SET UP AND RUN OPTIMIZATION MODEL
     ###========================================================
-    catheter_optimize_model = CatheterOptimizeModel(img_ref_binary, gpu_or_cpu).to(gpu_or_cpu)
+    catheter_optimize_model = CatheterOptimizeModel(p_start, img_ref_binary, gpu_or_cpu).to(gpu_or_cpu)
 
 
     print("Model Parameters:")
