@@ -123,17 +123,21 @@ class ConstructionBezier(nn.Module):
         self.epsilon = 1e-8
 
         # Number of samples to take along Bezier Curve
-        self.num_samples = 20
+        self.num_samples = 30
+        # self.num_samples = 6
         # Number of samples to take on INSIDE of each circle
         self.samples_per_circle = 20
+        # self.samples_per_circle = 20
         # Number of samples to take on OUTSIDE border of each circle
-        self.bezier_surface_resolution = 20
+        self.bezier_surface_resolution = 30
+        # self.bezier_surface_resolution = 15
         self.bezier_circle_angle_increment = (2 * math.pi) / self.bezier_surface_resolution
 
         self.cylinder_mesh_points = torch.zeros(self.num_samples, self.samples_per_circle, 3)
         self.cylinder_surface_points = torch.zeros(self.num_samples, self.bezier_surface_resolution, 3)
 
         self.radius = 0.0015
+        # self.radius = 2
         # self.radius = 0.003
 
         self.setCameraParams(camera_settings.a, camera_settings.b, camera_settings.center_x, camera_settings.center_y,
@@ -417,7 +421,7 @@ class ConstructionBezier(nn.Module):
 
         return circle_border_point
 
-    def plot3dPoints(self, show_vector_lines, plot_bezier_points, pos_bezier, set_of_vectors=None): 
+    def plot3dPoints(self, show_vector_lines, plot_bezier_points, set_of_vectors=None): 
         '''
         Method to plot Bezier vectors using MatPlotLib
 
@@ -432,13 +436,13 @@ class ConstructionBezier(nn.Module):
 
         # Only plot points along Bezier curve. No vector lines
         if plot_bezier_points is True and set_of_vectors is None and show_vector_lines is False: 
-            for point in pos_bezier: 
+            for point in self.pos_bezier: 
                 self.ax.scatter(point[0], point[1], point[2])
 
         # Only plot vector points. No vector lines
         elif plot_bezier_points is False and set_of_vectors is not None and show_vector_lines is False: 
             vec_normalized = self.getNormalizedVectors(set_of_vectors)
-            vec_normalized_translated = self.getTranslatedVectors(pos_bezier, vec_normalized)
+            vec_normalized_translated = self.getTranslatedVectors(self.pos_bezier, vec_normalized)
 
             for vec in vec_normalized_translated: 
                 self.ax.scatter(vec[0], vec[1], vec[2])
@@ -446,30 +450,44 @@ class ConstructionBezier(nn.Module):
         # Only plot vectors points. Show vector lines
         elif plot_bezier_points is False and set_of_vectors is not None and show_vector_lines is True:
             vec_normalized = self.getNormalizedVectors(set_of_vectors)
-            vec_normalized_translated = self.getTranslatedVectors(pos_bezier, vec_normalized)
+            vec_normalized_translated = self.getTranslatedVectors(self.pos_bezier, vec_normalized)
             
-            for pos_vec, vec in zip(pos_bezier, vec_normalized_translated): 
+            for pos_vec, vec in zip(self.pos_bezier, vec_normalized_translated): 
                 self.ax.scatter(vec[0], vec[1], vec[2])
                 self.ax.plot([pos_vec[0], vec[0]], [pos_vec[1], vec[1]], [pos_vec[2], vec[2]])
 
         # Plot points along Bezier curve and vectors points. No vector lines
         elif plot_bezier_points is True and set_of_vectors is not None and show_vector_lines is False: 
             vec_normalized = self.getNormalizedVectors(set_of_vectors)
-            vec_normalized_translated = self.getTranslatedVectors(pos_bezier, vec_normalized)
+            vec_normalized_translated = self.getTranslatedVectors(self.pos_bezier, vec_normalized)
 
-            for point, vec in zip(pos_bezier, vec_normalized_translated): 
+            for point, vec in zip(self.pos_bezier, vec_normalized_translated): 
                 self.ax.scatter(point[0], point[1], point[2])
                 self.ax.scatter(vec[0], vec[1], vec[2])
 
         # Plot points along Bezier curve and vectors points. Show vector lines
         elif plot_bezier_points is True and  set_of_vectors is not None and show_vector_lines is True: 
             vec_normalized = self.getNormalizedVectors(set_of_vectors)
-            vec_normalized_translated = self.getTranslatedVectors(pos_bezier, vec_normalized)
+            vec_normalized_translated = self.getTranslatedVectors(self.pos_bezier, vec_normalized)
 
-            for point, vec in zip(pos_bezier, vec_normalized_translated): 
+            for point, vec in zip(self.pos_bezier, vec_normalized_translated): 
                 self.ax.scatter(point[0], point[1], point[2])
                 self.ax.scatter(vec[0], vec[1], vec[2])
                 self.ax.plot([pos_vec[0], vec[0]], [pos_vec[1], vec[1]], [pos_vec[2], vec[2]])
+
+
+    def run3dPlot(self): 
+
+        self.ax.set_box_aspect([2,2,2]) 
+        self.set_axes_equal(self.ax)
+
+        self.ax.set_xlabel('X')
+        self.ax.set_ylabel('Y')
+        self.ax.set_zlabel('Z')
+
+        self.fig.suptitle('Bézier Curve TNB Frames')
+
+        plt.show()
 
     def plot3dBezierCylinder(self): 
         # Get Cylinder mesh points
@@ -482,12 +500,14 @@ class ConstructionBezier(nn.Module):
                                 pos_vec[2].detach().numpy() + self.cylinder_mesh_and_surface_points[i, j, 2].detach().numpy())
 
         # Set up axes for 3d plot
-        self.ax.set_box_aspect([1,1,1]) 
+        self.ax.set_box_aspect([2,2,2]) 
         self.set_axes_equal(self.ax)
 
-        self.ax.set_xlabel('X Label')
-        self.ax.set_ylabel('Y Label')
-        self.ax.set_zlabel('Z Label')
+        self.ax.set_xlabel('X')
+        self.ax.set_ylabel('Y')
+        self.ax.set_zlabel('Z')
+
+        self.fig.suptitle('Bézier Curve - Cross Sectional Circles')
 
         plt.show()
 
@@ -814,9 +834,9 @@ class ConstructionBezier(nn.Module):
         ## torch clone
         bezier_proj_img = torch.clone(self.bezier_proj_img)
 
-        print("segmented_circle_draw_img_rgb.shape: ", segmented_circle_draw_img_rgb.shape)
-        print("segmented_circle_draw_img_rgb.shape[0]: ", segmented_circle_draw_img_rgb.shape[0])
-        print("segmented_circle_draw_img_rgb.shape[1]: ", segmented_circle_draw_img_rgb.shape[1])
+        # print("segmented_circle_draw_img_rgb.shape: ", segmented_circle_draw_img_rgb.shape)
+        # print("segmented_circle_draw_img_rgb.shape[0]: ", segmented_circle_draw_img_rgb.shape[0])
+        # print("segmented_circle_draw_img_rgb.shape[1]: ", segmented_circle_draw_img_rgb.shape[1])
 
 
         for i in range(bezier_proj_img.shape[0] - 1): 
@@ -854,8 +874,8 @@ class ConstructionBezier(nn.Module):
             tip_point = (int(self.img_raw_skeleton[0, 0]), int(self.img_raw_skeleton[0, 1]))
             boundary_point = (int(self.img_raw_skeleton[-1, 0]), int(self.img_raw_skeleton[-1, 1]))
 
-            cv2.circle(segmented_circle_draw_img_rgb, tip_point, 5, (0, 0, 255), -1)
-            cv2.circle(segmented_circle_draw_img_rgb, boundary_point, 5, (0, 0, 255), -1)
+            cv2.circle(segmented_circle_draw_img_rgb, tip_point, 2, (0, 0, 255), -1)
+            cv2.circle(segmented_circle_draw_img_rgb, boundary_point, 2, (0, 0, 255), -1)
 
 
         # Draw projected tip and boundary points onto the reference image.
@@ -873,7 +893,11 @@ class ConstructionBezier(nn.Module):
         fig, ax = plt.subplots(figsize=(8, 5))
 
         ax.imshow(cv2.cvtColor(segmented_circle_draw_img_rgb, cv2.COLOR_BGR2RGB))
-        ax.set_title('2D Bezier Cylinder Mesh')
+        ax.set_title('Projected Points Overlaid on Reference Image: Iteration 100')
+
+        # set axes titles
+        ax.set_xlabel('Width (pixels)')
+        ax.set_ylabel('Height (pixels)')
 
         # plt.tight_layout()
         # plt.show()
@@ -1092,8 +1116,8 @@ class ConstructionBezier(nn.Module):
         # Stack self.cylinder_mesh_points and self.cylinder_surface_points on top of each other in dimension 1
         self.cylinder_mesh_and_surface_points = torch.cat((self.cylinder_mesh_points, self.cylinder_surface_points), dim=1)
 
-        print("self.cylinder_mesh_and_surface_points.shape: " + str(self.cylinder_mesh_and_surface_points.shape))
-        print("self.cylinder_mesh_and_surface_points: " + str(self.cylinder_mesh_and_surface_points))
+        # print("self.cylinder_mesh_and_surface_points.shape: " + str(self.cylinder_mesh_and_surface_points.shape))
+        # print("self.cylinder_mesh_and_surface_points: " + str(self.cylinder_mesh_and_surface_points))
 
 
 ###################################################################################################

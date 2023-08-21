@@ -18,6 +18,7 @@ import open3d as o3d
 
 import cv2
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MultipleLocator, FormatStrFormatter
 
 import pdb
 
@@ -47,6 +48,9 @@ class CatheterOptimizeModel(nn.Module):
         self.build_bezier.to(gpu_or_cpu)
         self.build_bezier.loadRawImage(img_save_path)
 
+        ###========================================================
+        ### 2) SETTING UP LOSS FUNCTIONS
+        ###========================================================
         self.chamfer_loss_whole_image = ChamferLossWholeImage(device=gpu_or_cpu)
         self.chamfer_loss_whole_image.to(gpu_or_cpu)
         self.contour_chamfer_loss = ContourChamferLoss(device=gpu_or_cpu)
@@ -59,6 +63,14 @@ class CatheterOptimizeModel(nn.Module):
         self.tip_distance_loss.to(gpu_or_cpu)
         self.boundary_point_distance_loss = BoundaryPointDistanceLoss(device=gpu_or_cpu)
         self.boundary_point_distance_loss.to(gpu_or_cpu)
+
+        # Declare self.tip_euclidean_distance_loss as a variable that'll hold a single numpy scalar value
+        self.tip_euclidean_distance_loss = None
+
+
+        ###========================================================
+        ### 3) SETTING UP CURVE PARAMETERS
+        ###========================================================
 
         # Straight Line for initial parameters
         # self.para_init = nn.Parameter(torch.from_numpy(
@@ -141,10 +153,10 @@ class CatheterOptimizeModel(nn.Module):
         loss_contour = self.contour_chamfer_loss(self.build_bezier.bezier_proj_img, self.image_ref)
         loss_tip = self.tip_chamfer_loss(self.build_bezier.bezier_proj_img, self.image_ref)
         loss_boundary = self.boundary_point_chamfer_loss(self.build_bezier.bezier_proj_img, self.image_ref)
-        loss_tip_distance = self.tip_distance_loss(self.build_bezier.bezier_proj_centerline_img, self.image_ref)
+        loss_tip_distance, self.tip_euclidean_distance_loss = self.tip_distance_loss(self.build_bezier.bezier_proj_centerline_img, self.image_ref)
         loss_boundary_point_distance_loss = self.boundary_point_distance_loss(self.build_bezier.bezier_proj_img, self.image_ref)
 
-        weight = torch.tensor([1.0, 0.0, 0.0, 1.0, 1.0])
+        weight = torch.tensor([1.0, 0.0, 0.0, 1.0, 0.0])
         loss = loss_contour * weight[0] + loss_tip * weight[1] + loss_boundary * weight[2] + loss_tip_distance * weight[3] + loss_boundary_point_distance_loss * weight[4]
 
 
@@ -180,13 +192,13 @@ if __name__ == '__main__':
     ###========================================================
     # para_init = torch.tensor([0.02, 0.002, 0.0, 0.01958988, 0.00195899, 0.09690406, -0.03142905, -0.0031429, 0.18200866], dtype=torch.float)
     # p_start = torch.tensor([0.02, 0.002, 0.0])
-    p_start = torch.tensor([0.02, 0.008, 0.054])
 
 
     # Z axis + 0.1
     # para_init = torch.tensor([0.02, 0.002, 0.1, 0.01958988, 0.00195899, 0.09690406, -0.03142905, -0.0031429, 0.18200866], dtype=torch.float)
     # p_start = torch.tensor([0.02, 0.002, 0.1000])
 
+    p_start = torch.tensor([0.02, 0.008, 0.054])
 
     case_naming = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/scripts/test_diff_render_catheter_v2/blender_imgs/test_catheter_gt1'
     img_save_path = case_naming + '.png'
@@ -208,6 +220,12 @@ if __name__ == '__main__':
     (thresh, img_ref_thresh) = cv2.threshold(img_ref_gray, 80, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
     img_ref_binary = np.where(img_ref_thresh == 255, 1, img_ref_thresh)
 
+    proj_end_effector_loss_history = []
+    d3d_end_effector_loss_history = []
+    # Ground Truth parameters for catheter
+    para_gt = torch.tensor([0.02003904, 0.0016096, 0.13205799, 0.00489567, -0.03695673, 0.196168896], dtype=torch.float, device=gpu_or_cpu, requires_grad=False)
+    end_effector_gt = para_gt[3:6]
+
 
     ###========================================================
     ### 3) SET UP AND RUN OPTIMIZATION MODEL
@@ -224,7 +242,7 @@ if __name__ == '__main__':
     # Run the optimization loop
     loop = tqdm(range(100))
     for loop_id in loop:
-        print("\n========================================================")
+        print("\n================================================================================================================")
         print("loop_id: ", loop_id)
 
 
@@ -267,6 +285,10 @@ if __name__ == '__main__':
             print(f"Parameter: {name}, Updated Value: {param.data}")
 
 
+        # end_effector_loss_history.append(torch.norm((catheter_optimize_model.para_init[3:6] - end_effector_gt), p=2).item())
+        proj_end_effector_loss_history.append(catheter_optimize_model.tip_euclidean_distance_loss.item())
+        d3d_end_effector_loss_history.append(torch.norm((catheter_optimize_model.para_init[3:6] - end_effector_gt), p=2).item())
+
         # Update the progress bar
         loop.set_description('Optimizing')
 
@@ -274,5 +296,55 @@ if __name__ == '__main__':
         loop.set_postfix(loss=loss.item())
 
         print("Loss: ", loss.item())
+
+
+
+    iterations_x_axis_proj = list(range(len(proj_end_effector_loss_history)))
+
+    print("proj_end_effector_loss_history: ", proj_end_effector_loss_history)
+
+    # Given array of values proj_end_effector_loss_history, create plot of loss vs. iterations
+    fig1 = plt.figure()
+    ax1 = fig1.add_subplot(111)
+    
+    fig1.suptitle('2D Tip Euclidean Distance Loss History')
+
+    ax1.plot(iterations_x_axis_proj, proj_end_effector_loss_history)
+    ax1.set_xlabel('Iterations')
+    ax1.set_ylabel('Euclidean Distance Loss (Pixels)')
+    ax1.set_xlim([0, len(proj_end_effector_loss_history)])
+    ax1.set_ylim([0, 80])
+
+    ax1.grid(True)
+    
+    # Configure custom tick locator and formatter
+    # x_major_locator = MultipleLocator(2)  # Set tick interval
+    # y_major_locator = MultipleLocator(1)  # Set tick interval
+
+    # ax.xaxis.set_major_locator(x_major_locator)
+    # ax.yaxis.set_major_locator(y_major_locator)
+
+    # # Format tick labels if needed
+    # ax.xaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+    # ax.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+    plt.show()
+
+
+    iterations_x_axis_3d = list(range(len(d3d_end_effector_loss_history)))
+    print("d3d_end_effector_loss_history: ", d3d_end_effector_loss_history)
+
+    # Given array of values d3d_end_effector_loss_history, create plot of loss vs. iterations
+    fig2 = plt.figure()
+    ax2 = fig2.add_subplot(111)
+
+    fig2.suptitle('3D Tip Euclidean Distance Loss History')
+    ax2.plot(iterations_x_axis_3d, d3d_end_effector_loss_history)
+    ax2.set_xlabel('Iterations')
+    ax2.set_ylabel('Euclidean Distance Loss (m)')
+    ax2.set_xlim([0, len(d3d_end_effector_loss_history)])
+    ax2.set_ylim([0, 0.05])
+
+    ax2.grid(True)
+    plt.show()
 
 

@@ -5,7 +5,7 @@ import torch
 import matplotlib.pyplot as plt
 
 from test_reconst_v2 import ConstructionBezier
-from test_loss_define_v2 import ChamferLossWholeImage, ContourChamferLoss, TipChamferLoss
+from test_loss_define_v2 import ChamferLossWholeImage, ContourChamferLoss, TipChamferLoss, TipDistanceLoss
 
 if __name__ == "__main__": 
 
@@ -23,9 +23,12 @@ if __name__ == "__main__":
     ###========================================================
     # Parameters to plot: 
     p_start = torch.tensor([0.02, 0.008, 0.054])
+    # p_start *= 50
     # para_final = torch.tensor([0.02, 0.002, 0.1000, 0.0096, -0.0080,  0.1969, -0.0414, -0.0131,  0.2820], dtype=torch.float, requires_grad=False)
 
-    para_final = torch.tensor([0.0365, 0.0036,  0.1202,  0.0056, -0.0166, 0.1645], dtype=torch.float, requires_grad=False)
+    # para_final = torch.tensor([ 0.0275,  0.0174,  0.1461,  0.0055, -0.0448,  0.2336], dtype=torch.float, requires_grad=False)
+    para_final = torch.tensor([ 0.0167, 0.0131, 0.0984, 0.0059, -0.0449, 0.2355], dtype=torch.float, requires_grad=False)
+    # para_final *= 50
 
     case_naming = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/scripts/test_diff_render_catheter_v2/blender_imgs/test_catheter_gt1'
     img_save_path = case_naming + '.png'
@@ -39,6 +42,8 @@ if __name__ == "__main__":
 
     tip_chamfer_loss = TipChamferLoss(device=gpu_or_cpu)
     tip_chamfer_loss.to(gpu_or_cpu)
+    tip_distance_loss = TipDistanceLoss(device=gpu_or_cpu)
+    tip_distance_loss.to(gpu_or_cpu)
 
 
     ###========================================================
@@ -53,6 +58,18 @@ if __name__ == "__main__":
     ###========================================================
     # Generate the Bezier curve cylinder mesh points
     build_bezier.getBezierCurveCylinder(p_start, para_final)
+
+    # # Plot 3d TNB Frames
+    # build_bezier.plot3dPoints(True, True)
+    # # Plot points along Bezier curve
+    # build_bezier.plot3dPoints(False, True)
+    # # Plot tangents along Bezier curve
+    # build_bezier.plot3dPoints(True, False, build_bezier.der_bezier)
+    # # Plot normals along Bezier curve
+    # build_bezier.plot3dPoints(True, False, build_bezier.normal_bezier)
+    # # Plot binormals along Bezier curve
+    # build_bezier.plot3dPoints(True, False, build_bezier.binormal_bezier)
+    # build_bezier.run3dPlot()
 
     # Plot 3D Bezier Cylinder mesh points
     build_bezier.plot3dBezierCylinder()
@@ -70,12 +87,14 @@ if __name__ == "__main__":
     build_bezier.plotAll2dProjPoints()
 
     ###========================================================
-    ### 4) PLOT 2D CENTERLINE FROM REFERENCE IMAGE
+    ### 4) RUN LOSS FUNCTION JUST TO GET CONTOUR AND SKELEOTON
     ###========================================================
 
+    tip_distance_loss.get_raw_centerline(image_ref)
+    
     # Get 2d center line from reference image (using skeletonization)
-    tip_chamfer_loss.get_raw_centerline(image_ref)
-    centerline_ref = tip_chamfer_loss.img_raw_skeleton
+    centerline_ref = tip_distance_loss.img_raw_skeleton
+
     # print("centerline_ref shape: ", centerline_ref.shape)
     # print("centerline_ref: ", centerline_ref)
     
@@ -89,10 +108,37 @@ if __name__ == "__main__":
     '''
 
     ax1.plot(centerline_ref[:, 1], centerline_ref[:, 0])
-    ax1.set_title('centerline_ref')
+    ax1.set_title('Reference Image Catheter Skeleton')
     ax1.set_xlim([0, 640])
     ax1.set_ylim([480, 0])
+    # Set axes titles
+    ax1.set_xlabel('Width (pixels)')
+    ax1.set_ylabel('Height (pixels)')
     plt.show()
+
+
+    # Get 2d contour from reference image (using openCV contour detection)
+    tip_distance_loss.get_ref_contour(image_ref)
+    ref_catheter_contour_point_cloud = tip_distance_loss.ref_catheter_contour_point_cloud
+
+    # Plot the points in centerline_ref 
+    fig2, ax2 = plt.subplots()
+
+    '''
+    ref_catheter_contour_point_cloud.shape: (# of points, 2)
+    ref_catheter_contour_point_cloud[:, 0]: x coordinates (width)
+    ref_catheter_contour_point_cloud[:, 1]: y coordinates (height)
+    '''
+
+    ax2.plot(ref_catheter_contour_point_cloud[:, 0], ref_catheter_contour_point_cloud[:, 1])
+    ax2.set_title('Reference Image Catheter Contour')
+    ax2.set_xlim([0, 640])
+    ax2.set_ylim([480, 0])
+    # Set axes titles
+    ax2.set_xlabel('Width (pixels)')
+    ax2.set_ylabel('Height (pixels)')
+    plt.show()
+
 
 
     og_plot_points = torch.tensor([[0.02, 0.002, 0.0], 

@@ -442,19 +442,39 @@ class TipDistanceLoss(nn.Module):
 
         # Get reference image catheter's skeleton, tip, and boundary
         self.get_raw_centerline(img_ref)
-        
+        self.get_ref_contour(img_ref)
+
         # Flip the x and y coordinates in self.img_raw_skeleton: i.e., [[69, 43]] -> [[43, 69]]
         self.img_raw_skeleton = self.img_raw_skeleton.flip(1)
 
-        ref_tip_point = self.img_raw_skeleton[0, :]
-        print("ref_tip_point: ", ref_tip_point)
+        ref_skeleton_tip_point = self.img_raw_skeleton[0, :]
+        
+        # ref_point_found = False
+        # i = 0
+        # while not ref_point_found: 
+        #     ref_skeleton_tip_point = self.img_raw_skeleton[i, :]
+        #     if ref_skeleton_tip_point[0] > 0 and ref_skeleton_tip_point[1] > 0: 
+        #         ref_point_found = True
+        #     i += 1
+
+        # skeleton_tip_slope = (self.img_raw_skeleton[0, 1] - self.img_raw_skeleton[5, 1]) / (self.img_raw_skeleton[0, 0] - self.img_raw_skeleton[5, 0])
+        # print("ref_tip_point: ", ref_skeleton_tip_point)
+        # print("ref_tip_point prev 1: ", self.img_raw_skeleton[1, :])
+        # print("ref_tip_point prev 2: ", self.img_raw_skeleton[2, :])
+        # print("ref_tip  point prev 3: ", self.img_raw_skeleton[3, :])
+
+
 
         proj_tip_point = img_render_centerline_points[-1, :]
-        print("proj_tip_point: ", proj_tip_point)
+        # print("proj_tip_point: ", proj_tip_point)
 
-        tip_distance_loss = torch.mean((proj_tip_point - ref_tip_point) ** 2)
+        tip_distance_loss = torch.mean((proj_tip_point - ref_skeleton_tip_point) ** 2)
 
-        return tip_distance_loss
+        # tip_euclidean_distance_loss = torch.sqrt(tip_distance_loss).detach().cpu().numpy().copy()
+        tip_euclidean_distance_loss = torch.norm(proj_tip_point - ref_skeleton_tip_point, p=2).detach().cpu().numpy().copy()
+
+
+        return tip_distance_loss, tip_euclidean_distance_loss
 
 
     def get_raw_centerline(self, img_ref): 
@@ -514,6 +534,22 @@ class TipDistanceLoss(nn.Module):
 
         self.img_raw_skeleton = torch.as_tensor(img_raw_skeleton).float()
 
+    def get_ref_contour(self, img_ref): 
+        # Convert reference image to numpy array of type np.uint8 to be able to use OpenCV
+        img_ref = img_ref.cpu().detach().numpy().copy().astype(np.uint8)
+
+        # Find contours in the binary mask
+        contours, _ = cv2.findContours(img_ref, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        # Extract the largest contour (assuming it's the tube)
+        largest_contour = max(contours, key=cv2.contourArea)
+
+        # Extract coordinates of contour pixels
+        ref_catheter_contour_coordinates = largest_contour.squeeze()
+
+        # Convert coordinates to PyTorch tensor
+        self.ref_catheter_contour_point_cloud = torch.tensor(ref_catheter_contour_coordinates, dtype=torch.float)
+
 class BoundaryPointDistanceLoss(nn.Module): 
 
     def __init__(self, device): 
@@ -529,10 +565,10 @@ class BoundaryPointDistanceLoss(nn.Module):
         self.img_raw_skeleton = self.img_raw_skeleton.flip(1)
 
         ref_boundary_point = self.img_raw_skeleton[-1, :]
-        print("ref_tip_point: ", ref_boundary_point)
+        # print("ref_tip_point: ", ref_boundary_point)
 
         proj_boundary_point = img_render_centerline_points[0, :]
-        print("proj_tip_point: ", proj_boundary_point)
+        # print("proj_tip_point: ", proj_boundary_point)
 
         tip_distance_loss = torch.mean((proj_boundary_point - ref_boundary_point) ** 2)
 
