@@ -1,14 +1,19 @@
-
+'''
+This script is used to plot the Bezier curve construction in 3d and on 2d image. 
+Mainly used to visualize end parameters of a curve after training. 
+'''
 import cv2
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
 
 from test_reconst_v2 import ConstructionBezier
-from test_loss_define_v2 import ChamferLossWholeImage, ContourChamferLoss, TipChamferLoss, TipDistanceLoss
+from test_loss_define_v2 import TipChamferLoss, TipDistanceLoss
 
 if __name__ == "__main__": 
-
+    '''
+    This script is used to plot the Bezier curve construction in 3d and on 2d image.
+    '''
     ###========================================================
     ### 1) SET TO GPU OR CPU COMPUTING
     ###========================================================
@@ -23,12 +28,8 @@ if __name__ == "__main__":
     ###========================================================
     # Parameters to plot: 
     p_start = torch.tensor([0.02, 0.008, 0.054])
-    # p_start *= 50
-    # para_final = torch.tensor([0.02, 0.002, 0.1000, 0.0096, -0.0080,  0.1969, -0.0414, -0.0131,  0.2820], dtype=torch.float, requires_grad=False)
 
-    # para_final = torch.tensor([ 0.0275,  0.0174,  0.1461,  0.0055, -0.0448,  0.2336], dtype=torch.float, requires_grad=False)
     para_final = torch.tensor([ 0.0167, 0.0131, 0.0984, 0.0059, -0.0449, 0.2355], dtype=torch.float, requires_grad=False)
-    # para_final *= 50
 
     case_naming = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/scripts/test_diff_render_catheter_v2/blender_imgs/test_catheter_gt1'
     img_save_path = case_naming + '.png'
@@ -87,12 +88,11 @@ if __name__ == "__main__":
     build_bezier.plotAll2dProjPoints()
 
     ###========================================================
-    ### 4) RUN LOSS FUNCTION JUST TO GET CONTOUR AND SKELEOTON
+    ### 4) RUN LOSS FUNCTION JUST TO GET CONTOUR AND SKELETON (FOR SRC)
     ###========================================================
 
-    tip_distance_loss.get_raw_centerline(image_ref)
-    
     # Get 2d center line from reference image (using skeletonization)
+    tip_distance_loss.get_raw_centerline(image_ref)
     centerline_ref = tip_distance_loss.img_raw_skeleton
 
     # print("centerline_ref shape: ", centerline_ref.shape)

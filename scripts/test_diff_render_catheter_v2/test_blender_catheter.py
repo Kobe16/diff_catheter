@@ -104,6 +104,7 @@ if __name__ == '__main__':
     # p_start = torch.tensor([0.02, 0.002, 0.0])
     # para_gt = torch.tensor([0.02003904, 0.0016096, 0.10205799, 0.02489567, -0.04695673, 0.196168896], dtype=torch.float)
 
+    # Ground Truth parameters used for SRC: 
     p_start = torch.tensor([0.02, 0.008, 0.054])
     para_gt = torch.tensor([0.02003904, 0.0016096, 0.13205799, 0.00489567, -0.03695673, 0.196168896], dtype=torch.float)
 

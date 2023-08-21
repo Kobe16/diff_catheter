@@ -1,3 +1,7 @@
+'''
+File used to run optimization on the catheter parameters. 
+Uses Adam optimizer. 
+'''
 import sys
 from turtle import pd
 
@@ -18,14 +22,15 @@ import open3d as o3d
 
 import cv2
 import matplotlib.pyplot as plt
-from matplotlib.ticker import MultipleLocator, FormatStrFormatter
 
 import pdb
 
 from test_reconst_v2 import ConstructionBezier
 # from blender_catheter import BlenderRenderCatheter
 # from diff_render_catheter import DiffRenderCatheter
-from test_loss_define_v2 import ChamferLossWholeImage, ContourChamferLoss, TipChamferLoss, BoundaryPointChamferLoss, TipDistanceLoss, BoundaryPointDistanceLoss
+from test_loss_define_v2 import ChamferLossWholeImage, ContourChamferLoss, \
+    TipChamferLoss, BoundaryPointChamferLoss, TipDistanceLoss, BoundaryPointDistanceLoss, \
+    GenerateRefData
 
 import pytorch3d
 
@@ -38,7 +43,18 @@ from tqdm.notebook import tqdm
 
 
 class CatheterOptimizeModel(nn.Module): 
+    '''
+    This class is used to optimize the catheter parameters.
+    '''
     def __init__(self, p_start, image_ref, gpu_or_cpu): 
+        '''
+        This function initializes the catheter optimization model.
+
+        Args:
+            p_start (tensor): starting point of the catheter
+            image_ref (numpy array): reference image to compare to
+            gpu_or_cpu (str): either 'cuda' or 'cpu'
+        '''
         super().__init__()
 
         ###========================================================
@@ -51,6 +67,7 @@ class CatheterOptimizeModel(nn.Module):
         ###========================================================
         ### 2) SETTING UP LOSS FUNCTIONS
         ###========================================================
+        self.generate_ref_data = GenerateRefData()
         self.chamfer_loss_whole_image = ChamferLossWholeImage(device=gpu_or_cpu)
         self.chamfer_loss_whole_image.to(gpu_or_cpu)
         self.contour_chamfer_loss = ContourChamferLoss(device=gpu_or_cpu)
@@ -88,8 +105,25 @@ class CatheterOptimizeModel(nn.Module):
 
         image_ref = torch.from_numpy(image_ref.astype(np.float32))
         self.register_buffer('image_ref', image_ref)
+        
+        # Generate reference data, so you don't need to generate it in every forward pass
+        ref_catheter_contour = self.generate_ref_data.get_raw_contour(self.image_ref)
+        self.register_buffer('ref_catheter_contour', ref_catheter_contour)
+        ref_catheter_centerline = self.generate_ref_data.get_raw_centerline(self.image_ref)
+        self.register_buffer('ref_catheter_centerline', ref_catheter_centerline)
+
+
+
 
     def forward(self, save_img_path): 
+        '''
+        Function to run forward pass of the catheter optimization model.
+        Creates catheter model, gets projection onto 2d image, and calculates loss.
+
+        Args:
+            save_img_path (str): path to save the projection image to
+        '''
+
         # # Get 2d center line from reference image (using skeletonization)
         # centerline_ref = self.centerline_loss.get_raw_centerline(self.image_ref)
         # print("centerline_ref shape: ", centerline_ref.shape)
@@ -102,7 +136,6 @@ class CatheterOptimizeModel(nn.Module):
         # ax1.set_xlim([0, 640])
         # ax1.set_ylim([480, 0])
         # plt.show()
-
 
         ###========================================================
         ### 1) RUNNING BEZIER CURVE CONSTRUCTION
@@ -149,12 +182,20 @@ class CatheterOptimizeModel(nn.Module):
         ###========================================================
         ### 4) Compute Loss using various Loss Functions
         ###========================================================
-        # loss = self.chamfer_loss_whole_image(self.build_bezier.bezier_proj_img, self.image_ref)
+        # loss_whole_image = self.chamfer_loss_whole_image(self.build_bezier.bezier_proj_img, self.image_ref)
         loss_contour = self.contour_chamfer_loss(self.build_bezier.bezier_proj_img, self.image_ref)
         loss_tip = self.tip_chamfer_loss(self.build_bezier.bezier_proj_img, self.image_ref)
         loss_boundary = self.boundary_point_chamfer_loss(self.build_bezier.bezier_proj_img, self.image_ref)
         loss_tip_distance, self.tip_euclidean_distance_loss = self.tip_distance_loss(self.build_bezier.bezier_proj_centerline_img, self.image_ref)
         loss_boundary_point_distance_loss = self.boundary_point_distance_loss(self.build_bezier.bezier_proj_img, self.image_ref)
+
+        # loss_whole_image = self.chamfer_loss_whole_image(self.build_bezier.bezier_proj_img, self.image_ref)
+        # loss_contour = self.contour_chamfer_loss(self.build_bezier.bezier_proj_img, self.ref_catheter_contour)
+        # loss_tip = self.tip_chamfer_loss(self.build_bezier.bezier_proj_img, self.ref_catheter_centerline)
+        # loss_boundary = self.boundary_point_chamfer_loss(self.build_bezier.bezier_proj_img, self.ref_catheter_centerline)
+        # loss_tip_distance, self.tip_euclidean_distance_loss = self.tip_distance_loss(self.build_bezier.bezier_proj_centerline_img, self.ref_catheter_centerline)
+        # loss_boundary_point_distance_loss = self.boundary_point_distance_loss(self.build_bezier.bezier_proj_img, self.ref_catheter_centerline)
+
 
         weight = torch.tensor([1.0, 0.0, 0.0, 1.0, 0.0])
         loss = loss_contour * weight[0] + loss_tip * weight[1] + loss_boundary * weight[2] + loss_tip_distance * weight[3] + loss_boundary_point_distance_loss * weight[4]
@@ -177,6 +218,9 @@ class CatheterOptimizeModel(nn.Module):
 
 
 if __name__ == '__main__':
+    '''
+    Main function to set up optimzer model and run the optimization loop
+    '''
 
     ###========================================================
     ### 1) SET TO GPU OR CPU COMPUTING
@@ -198,6 +242,7 @@ if __name__ == '__main__':
     # para_init = torch.tensor([0.02, 0.002, 0.1, 0.01958988, 0.00195899, 0.09690406, -0.03142905, -0.0031429, 0.18200866], dtype=torch.float)
     # p_start = torch.tensor([0.02, 0.002, 0.1000])
 
+    # p_start used for SRC presentation
     p_start = torch.tensor([0.02, 0.008, 0.054])
 
     case_naming = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/scripts/test_diff_render_catheter_v2/blender_imgs/test_catheter_gt1'
@@ -220,9 +265,10 @@ if __name__ == '__main__':
     (thresh, img_ref_thresh) = cv2.threshold(img_ref_gray, 80, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
     img_ref_binary = np.where(img_ref_thresh == 255, 1, img_ref_thresh)
 
+    # Declare loss history lists to keep track of loss values
     proj_end_effector_loss_history = []
     d3d_end_effector_loss_history = []
-    # Ground Truth parameters for catheter
+    # Ground Truth parameters for catheter used in SRC presentation
     para_gt = torch.tensor([0.02003904, 0.0016096, 0.13205799, 0.00489567, -0.03695673, 0.196168896], dtype=torch.float, device=gpu_or_cpu, requires_grad=False)
     end_effector_gt = para_gt[3:6]
 
@@ -231,7 +277,6 @@ if __name__ == '__main__':
     ### 3) SET UP AND RUN OPTIMIZATION MODEL
     ###========================================================
     catheter_optimize_model = CatheterOptimizeModel(p_start, img_ref_binary, gpu_or_cpu).to(gpu_or_cpu)
-
 
     print("Model Parameters:")
     for name, param in catheter_optimize_model.named_parameters():
@@ -298,52 +343,32 @@ if __name__ == '__main__':
         print("Loss: ", loss.item())
 
 
-
-    iterations_x_axis_proj = list(range(len(proj_end_effector_loss_history)))
-
-    print("proj_end_effector_loss_history: ", proj_end_effector_loss_history)
-
     # Given array of values proj_end_effector_loss_history, create plot of loss vs. iterations
+    iterations_x_axis_proj = list(range(len(proj_end_effector_loss_history)))
+    print("proj_end_effector_loss_history: ", proj_end_effector_loss_history)
     fig1 = plt.figure()
     ax1 = fig1.add_subplot(111)
-    
     fig1.suptitle('2D Tip Euclidean Distance Loss History')
-
     ax1.plot(iterations_x_axis_proj, proj_end_effector_loss_history)
     ax1.set_xlabel('Iterations')
     ax1.set_ylabel('Euclidean Distance Loss (Pixels)')
     ax1.set_xlim([0, len(proj_end_effector_loss_history)])
     ax1.set_ylim([0, 80])
-
     ax1.grid(True)
-    
-    # Configure custom tick locator and formatter
-    # x_major_locator = MultipleLocator(2)  # Set tick interval
-    # y_major_locator = MultipleLocator(1)  # Set tick interval
-
-    # ax.xaxis.set_major_locator(x_major_locator)
-    # ax.yaxis.set_major_locator(y_major_locator)
-
-    # # Format tick labels if needed
-    # ax.xaxis.set_major_formatter(FormatStrFormatter('%.1f'))
-    # ax.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
     plt.show()
 
 
+    # Given array of values d3d_end_effector_loss_history, create plot of 3d loss vs. iterations
     iterations_x_axis_3d = list(range(len(d3d_end_effector_loss_history)))
     print("d3d_end_effector_loss_history: ", d3d_end_effector_loss_history)
-
-    # Given array of values d3d_end_effector_loss_history, create plot of loss vs. iterations
     fig2 = plt.figure()
     ax2 = fig2.add_subplot(111)
-
     fig2.suptitle('3D Tip Euclidean Distance Loss History')
     ax2.plot(iterations_x_axis_3d, d3d_end_effector_loss_history)
     ax2.set_xlabel('Iterations')
     ax2.set_ylabel('Euclidean Distance Loss (m)')
     ax2.set_xlim([0, len(d3d_end_effector_loss_history)])
     ax2.set_ylim([0, 0.05])
-
     ax2.grid(True)
     plt.show()
 
