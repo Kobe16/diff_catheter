@@ -67,19 +67,18 @@ class CatheterOptimizeModel(nn.Module):
         ###========================================================
         ### 2) SETTING UP LOSS FUNCTIONS
         ###========================================================
-        self.generate_ref_data = GenerateRefData()
-        self.chamfer_loss_whole_image = ChamferLossWholeImage(device=gpu_or_cpu)
-        self.chamfer_loss_whole_image.to(gpu_or_cpu)
+        # self.chamfer_loss_whole_image = ChamferLossWholeImage(device=gpu_or_cpu)
+        # self.chamfer_loss_whole_image.to(gpu_or_cpu)
         self.contour_chamfer_loss = ContourChamferLoss(device=gpu_or_cpu)
         self.contour_chamfer_loss.to(gpu_or_cpu)
-        self.tip_chamfer_loss = TipChamferLoss(device=gpu_or_cpu)
-        self.tip_chamfer_loss.to(gpu_or_cpu)
-        self.boundary_point_chamfer_loss = BoundaryPointChamferLoss(device=gpu_or_cpu)
-        self.boundary_point_chamfer_loss.to(gpu_or_cpu)
+        # self.tip_chamfer_loss = TipChamferLoss(device=gpu_or_cpu)
+        # self.tip_chamfer_loss.to(gpu_or_cpu)
+        # self.boundary_point_chamfer_loss = BoundaryPointChamferLoss(device=gpu_or_cpu)
+        # self.boundary_point_chamfer_loss.to(gpu_or_cpu)
         self.tip_distance_loss = TipDistanceLoss(device=gpu_or_cpu)
         self.tip_distance_loss.to(gpu_or_cpu)
-        self.boundary_point_distance_loss = BoundaryPointDistanceLoss(device=gpu_or_cpu)
-        self.boundary_point_distance_loss.to(gpu_or_cpu)
+        # self.boundary_point_distance_loss = BoundaryPointDistanceLoss(device=gpu_or_cpu)
+        # self.boundary_point_distance_loss.to(gpu_or_cpu)
 
         # Declare self.tip_euclidean_distance_loss as a variable that'll hold a single numpy scalar value
         self.tip_euclidean_distance_loss = None
@@ -107,9 +106,10 @@ class CatheterOptimizeModel(nn.Module):
         self.register_buffer('image_ref', image_ref)
         
         # Generate reference data, so you don't need to generate it in every forward pass
-        ref_catheter_contour = self.generate_ref_data.get_raw_contour(self.image_ref)
+        self.generate_ref_data = GenerateRefData(self.image_ref)
+        ref_catheter_contour = self.generate_ref_data.get_raw_contour()
         self.register_buffer('ref_catheter_contour', ref_catheter_contour)
-        ref_catheter_centerline = self.generate_ref_data.get_raw_centerline(self.image_ref)
+        ref_catheter_centerline = self.generate_ref_data.get_raw_centerline()
         self.register_buffer('ref_catheter_centerline', ref_catheter_centerline)
 
 
@@ -183,30 +183,30 @@ class CatheterOptimizeModel(nn.Module):
         ### 4) Compute Loss using various Loss Functions
         ###========================================================
         # loss_whole_image = self.chamfer_loss_whole_image(self.build_bezier.bezier_proj_img, self.image_ref)
-        loss_contour = self.contour_chamfer_loss(self.build_bezier.bezier_proj_img, self.image_ref)
-        loss_tip = self.tip_chamfer_loss(self.build_bezier.bezier_proj_img, self.image_ref)
-        loss_boundary = self.boundary_point_chamfer_loss(self.build_bezier.bezier_proj_img, self.image_ref)
-        loss_tip_distance, self.tip_euclidean_distance_loss = self.tip_distance_loss(self.build_bezier.bezier_proj_centerline_img, self.image_ref)
-        loss_boundary_point_distance_loss = self.boundary_point_distance_loss(self.build_bezier.bezier_proj_img, self.image_ref)
+        # loss_contour = self.contour_chamfer_loss(self.build_bezier.bezier_proj_img, self.image_ref)
+        # loss_tip = self.tip_chamfer_loss(self.build_bezier.bezier_proj_img, self.image_ref)
+        # loss_boundary = self.boundary_point_chamfer_loss(self.build_bezier.bezier_proj_img, self.image_ref)
+        # loss_tip_distance, self.tip_euclidean_distance_loss = self.tip_distance_loss(self.build_bezier.bezier_proj_centerline_img, self.image_ref)
+        # loss_boundary_point_distance_loss = self.boundary_point_distance_loss(self.build_bezier.bezier_proj_img, self.image_ref)
 
         # loss_whole_image = self.chamfer_loss_whole_image(self.build_bezier.bezier_proj_img, self.image_ref)
-        # loss_contour = self.contour_chamfer_loss(self.build_bezier.bezier_proj_img, self.ref_catheter_contour)
+        loss_contour = self.contour_chamfer_loss(self.build_bezier.bezier_proj_img, self.ref_catheter_contour)
         # loss_tip = self.tip_chamfer_loss(self.build_bezier.bezier_proj_img, self.ref_catheter_centerline)
         # loss_boundary = self.boundary_point_chamfer_loss(self.build_bezier.bezier_proj_img, self.ref_catheter_centerline)
-        # loss_tip_distance, self.tip_euclidean_distance_loss = self.tip_distance_loss(self.build_bezier.bezier_proj_centerline_img, self.ref_catheter_centerline)
+        loss_tip_distance, self.tip_euclidean_distance_loss = self.tip_distance_loss(self.build_bezier.bezier_proj_centerline_img, self.ref_catheter_centerline)
         # loss_boundary_point_distance_loss = self.boundary_point_distance_loss(self.build_bezier.bezier_proj_img, self.ref_catheter_centerline)
 
 
-        weight = torch.tensor([1.0, 0.0, 0.0, 1.0, 0.0])
-        loss = loss_contour * weight[0] + loss_tip * weight[1] + loss_boundary * weight[2] + loss_tip_distance * weight[3] + loss_boundary_point_distance_loss * weight[4]
+        weight = torch.tensor([1.0, 1.0])
+        loss = loss_contour * weight[0] + loss_tip_distance * weight[1]
 
 
         print("-----------------------------------------------------------------")
         print("loss_contour: ", loss_contour)
-        print("loss_tip: ", loss_tip)
-        print("loss_boundary: ", loss_boundary)
+        # print("loss_tip: ", loss_tip)
+        # print("loss_boundary: ", loss_boundary)
         print("loss_tip_distance: ", loss_tip_distance)
-        print("loss_boundary_point_distance_loss: ", loss_boundary_point_distance_loss)
+        # print("loss_boundary_point_distance_loss: ", loss_boundary_point_distance_loss)
         print("loss: ", loss)
         print("-----------------------------------------------------------------")
 

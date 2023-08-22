@@ -8,7 +8,7 @@ import torch
 import matplotlib.pyplot as plt
 
 from test_reconst_v2 import ConstructionBezier
-from test_loss_define_v2 import TipChamferLoss, TipDistanceLoss
+from test_loss_define_v2 import GenerateRefData, TipChamferLoss, TipDistanceLoss
 
 if __name__ == "__main__": 
     '''
@@ -91,9 +91,10 @@ if __name__ == "__main__":
     ### 4) RUN LOSS FUNCTION JUST TO GET CONTOUR AND SKELETON (FOR SRC)
     ###========================================================
 
+    generate_ref_data = GenerateRefData(image_ref)
+
     # Get 2d center line from reference image (using skeletonization)
-    tip_distance_loss.get_raw_centerline(image_ref)
-    centerline_ref = tip_distance_loss.img_raw_skeleton
+    centerline_ref = generate_ref_data.get_raw_centerline()
 
     # print("centerline_ref shape: ", centerline_ref.shape)
     # print("centerline_ref: ", centerline_ref)
@@ -118,8 +119,7 @@ if __name__ == "__main__":
 
 
     # Get 2d contour from reference image (using openCV contour detection)
-    tip_distance_loss.get_ref_contour(image_ref)
-    ref_catheter_contour_point_cloud = tip_distance_loss.ref_catheter_contour_point_cloud
+    ref_catheter_contour_point_cloud = generate_ref_data.get_raw_contour()
 
     # Plot the points in centerline_ref 
     fig2, ax2 = plt.subplots()

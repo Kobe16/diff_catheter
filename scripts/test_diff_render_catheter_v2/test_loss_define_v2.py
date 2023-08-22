@@ -16,6 +16,9 @@ from test_reconst_v2 import ConstructionBezier
 
 
 class GenerateRefData(): 
+    '''
+    Class used to generate reference data for the catheter reconstruction model.
+    '''
     def __init__(self, img_ref):
         self.img_ref = img_ref
 
@@ -84,7 +87,7 @@ class GenerateRefData():
         '''
 
         # Convert reference image to numpy array of type np.uint8 to be able to use OpenCV
-        img_ref = img_ref.cpu().detach().numpy().copy().astype(np.uint8)
+        img_ref = self.img_ref.cpu().detach().numpy().copy().astype(np.uint8)
 
         # Find contours in the binary mask
         contours, _ = cv2.findContours(img_ref, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -110,7 +113,6 @@ class ChamferLossWholeImage(nn.Module):
     def __init__(self, device):
         super(ChamferLossWholeImage, self).__init__()
         self.device = device
-        self.mse_loss = nn.MSELoss(reduction='mean')
 
     def forward(self, img_render_points, img_ref):
         """
@@ -184,24 +186,27 @@ class ContourChamferLoss(nn.Module):
     def __init__(self, device):
         super(ContourChamferLoss, self).__init__()
         self.device = device
-        self.mse_loss = nn.MSELoss(reduction='mean')
 
-    def forward(self, img_render_points, img_ref):
+    def forward(self, img_render_points, ref_catheter_contour_point_cloud):
         """
         Calculate the Chamfer loss between projected points and reference image's catheter contour.
         
         Args:
             img_render_points (Tensor): Image of projected points. Must reshape to shape (N, 2).
-            img_ref (Tensor): Reference image of catheter. 
-                              Must get contour of catheter, get coordinates of pixels inside the contour, 
-                              and reshape to shape (# of pixels inside the contour , 2).      
+            ref_catheter_contour_point_cloud (Tensor): Reference contour of catheter 
+                                                       (coordinates of pixels on catheter border), 
+                                                       Reshape to shape (# of pixels inside the contour , 2).      
         Returns:
             loss (Tensor): Contour Chamfer loss.
         """
-        self.prepare_data(img_render_points, img_ref)
+
+        # reshape img_render_points to shape (img_render_points.shape[0] * img_render_points.shape[1], 2)
+        self.img_render_point_cloud = img_render_points.reshape(img_render_points.shape[0] * img_render_points.shape[1], 2)
+        # print("self.img_render_point_cloud shape: ", self.img_render_point_cloud.shape)
+        # print("self.img_render_point_cloud: ", self.img_render_point_cloud)
 
         # Calculate pairwise Euclidean distances
-        distances = torch.norm(self.img_render_point_cloud[:, None, :] - self.ref_catheter_contour_point_cloud[None, :, :], dim=2)
+        distances = torch.norm(self.img_render_point_cloud[:, None, :] - ref_catheter_contour_point_cloud[None, :, :], dim=2)
 
         # print("distances.shape: ", distances.shape)
         # print("distances: ", distances)
@@ -222,35 +227,8 @@ class ContourChamferLoss(nn.Module):
         chamfer_loss = torch.sum(min_distances_1) + torch.sum(min_distances_2)
         # print("chamfer_loss: ", chamfer_loss)
 
-        
         return chamfer_loss
     
-    def prepare_data(self, img_render_points, img_ref):
-        '''Method to prepare data for chamfer loss calculation.'''
-
-        # Height = 480, Width = 640
-        self.height = img_ref.shape[0]
-        self.width = img_ref.shape[1]
-        # reshape img_render_points to shape (img_render_points.shape[0] * img_render_points.shape[1], 2)
-        self.img_render_point_cloud = img_render_points.reshape(img_render_points.shape[0] * img_render_points.shape[1], 2)
-        # print("self.img_render_point_cloud shape: ", self.img_render_point_cloud.shape)
-        # print("self.img_render_point_cloud: ", self.img_render_point_cloud)
-
-
-        # Convert reference image to numpy array of type np.uint8 to be able to use OpenCV
-        img_ref = img_ref.cpu().detach().numpy().copy().astype(np.uint8)
-
-        # Find contours in the binary mask
-        contours, _ = cv2.findContours(img_ref, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-        # Extract the largest contour (assuming it's the tube)
-        largest_contour = max(contours, key=cv2.contourArea)
-
-        # Extract coordinates of contour pixels
-        ref_catheter_contour_coordinates = largest_contour.squeeze()
-
-        # Convert coordinates to PyTorch tensor
-        self.ref_catheter_contour_point_cloud = torch.tensor(ref_catheter_contour_coordinates, dtype=torch.float)
 
 
 class TipChamferLoss(nn.Module):
@@ -260,22 +238,21 @@ class TipChamferLoss(nn.Module):
     def __init__(self, device):
         super(TipChamferLoss, self).__init__()
         self.device = device
-        self.mse_loss = nn.MSELoss(reduction='mean')
 
-    def forward(self, img_render_points, img_ref):
+    def forward(self, img_render_points, ref_catheter_skeleton):
         """
         Calculate the Chamfer loss between projected points LAST circle and reference image's catheter tip.
         
         Args:
             img_render_points (Tensor): Image of projected points. Must reshape to shape (N, 2). 
                                         Only use last projected 'circle'. 
-            img_ref (Tensor): Reference image of catheter. 
-                              Must get skletonization of catheter, get coordinates of pixels at the tip, 
+            ref_catheter_skeleton (Tensor): Reference morphological skeleton of catheter. 
+                              Must get coordinates of pixels at the tip, 
                               and reshape to shape (# of pixels inside the contour , 2).      
         Returns:
             loss (Tensor): Tip Chamfer loss.
         """
-        self.prepare_data(img_render_points, img_ref)
+        self.prepare_data(img_render_points, ref_catheter_skeleton)
 
         # Calculate pairwise Euclidean distances
         distances = torch.norm(self.img_render_points_last_circle_point_cloud[:, None, :] - self.ref_catheter_tip_point_cloud[None, :, :], dim=2)
@@ -302,14 +279,10 @@ class TipChamferLoss(nn.Module):
         
         return chamfer_loss
     
-    def prepare_data(self, img_render_points, img_ref):
+    def prepare_data(self, img_render_points, ref_catheter_skeleton):
         '''
         Method to prepare data for chamfer loss calculation.
         '''
-
-        # Height = 480, Width = 640
-        self.height = img_ref.shape[0]
-        self.width = img_ref.shape[1]
 
         # Extract last circle of projected points
         img_render_points_last_circle = img_render_points[-1]
@@ -320,15 +293,11 @@ class TipChamferLoss(nn.Module):
         # print("self.img_render_points_last_circle_point_cloud: ", self.img_render_points_last_circle_point_cloud)
 
 
-        # Get raw skeleton of catheter in reference image
         # Extract tip point on catheter skeleton. Then add a dimension to make it
         # technically count as a point cloud (shape (1, 2))
-        self.get_raw_centerline(img_ref)
-
-        # print("self.img_raw_skeleton.shape: ", self.img_raw_skeleton.shape)
-        # print("self.img_raw_skeleton: ", self.img_raw_skeleton)
-
-        self.ref_catheter_tip_point_cloud = self.img_raw_skeleton[0]
+        # print("ref_catheter_skeleton.shape: ", ref_catheter_skeleton.shape)
+        # print("ref_catheter_skeleton: ", ref_catheter_skeleton)
+        self.ref_catheter_tip_point_cloud = ref_catheter_skeleton[0]
         self.ref_catheter_tip_point_cloud = self.ref_catheter_tip_point_cloud.unsqueeze(0)
 
         # Flip the x and y coordinates in self.ref_catheter_tip_point_cloud: i.e., [[69, 43]] -> [[43, 69]]
@@ -336,63 +305,6 @@ class TipChamferLoss(nn.Module):
 
         # print("self.ref_catheter_tip_point_cloud.shape: ", self.ref_catheter_tip_point_cloud.shape)
         # print("self.ref_catheter_tip_point_cloud: ", self.ref_catheter_tip_point_cloud)
-
-    def get_raw_centerline(self, img_ref): 
-        '''
-        Method to get the raw centerline of the catheter from the reference image.
-        '''
-
-        # convert to numpy array
-        img_ref = img_ref.cpu().detach().numpy().copy()
-
-        img_height = img_ref.shape[0]
-        img_width = img_ref.shape[1]
-
-        # perform skeletonization, need to extend the boundary of the image because of the way the skeletonization algorithm works (it looks at the 8 neighbors of each pixel)
-        extend_dim = int(60)
-        img_thresh_extend = np.zeros((img_height, img_width + extend_dim))
-        img_thresh_extend[0:img_height, 0:img_width] = img_ref / 1.0
-
-        # get the left boundary of the image
-        left_boundarylineA_id = np.squeeze(np.argwhere(img_thresh_extend[:, img_width - 1]))
-        left_boundarylineB_id = np.squeeze(np.argwhere(img_thresh_extend[:, img_width - 10]))
-
-        # get the center of the left boundary
-        extend_vec_pt1_center = np.array([img_width, (left_boundarylineA_id[0] + left_boundarylineA_id[-1]) / 2])
-        extend_vec_pt2_center = np.array(
-            [img_width - 5, (left_boundarylineB_id[0] + left_boundarylineB_id[-1]) / 2])
-        exten_vec = extend_vec_pt2_center - extend_vec_pt1_center
-
-        # avoid dividing by zero
-        if exten_vec[1] == 0:
-            exten_vec[1] += 0.00000001
-
-        # get the slope and intercept of the line
-        k_extend = exten_vec[0] / exten_vec[1]
-        b_extend_up = img_width - k_extend * left_boundarylineA_id[0]
-        b_extend_dw = img_width - k_extend * left_boundarylineA_id[-1]
-
-        # extend the ROI to the right, so that the skeletonization algorithm could be able to get the centerline
-        # then it could be able to get the intersection point with boundary
-        extend_ROI = np.array([
-            np.array([img_width, left_boundarylineA_id[0]]),
-            np.array([img_width, left_boundarylineA_id[-1]]),
-            np.array([img_width + extend_dim,
-                      int(((img_width + extend_dim) - b_extend_dw) / k_extend)]),
-            np.array([img_width + extend_dim,
-                      int(((img_width + extend_dim) - b_extend_up) / k_extend)])
-        ])
-
-        # fill the extended ROI with 1
-        img_thresh_extend = cv2.fillPoly(img_thresh_extend, [extend_ROI], 1)
-
-        # skeletonize the image
-        skeleton = skimage_morphology.skeletonize(img_thresh_extend)
-
-        # get the centerline of the image
-        img_raw_skeleton = np.argwhere(skeleton[:, 0:img_width] == 1)
-
-        self.img_raw_skeleton = torch.as_tensor(img_raw_skeleton).float()
 
 
 class BoundaryPointChamferLoss(nn.Module):
@@ -403,22 +315,21 @@ class BoundaryPointChamferLoss(nn.Module):
     def __init__(self, device):
         super(BoundaryPointChamferLoss, self).__init__()
         self.device = device
-        self.mse_loss = nn.MSELoss(reduction='mean')
 
-    def forward(self, img_render_points, img_ref):
+    def forward(self, img_render_points, ref_catheter_skeleton):
         """
         Calculate the Chamfer loss between projected points First circle and reference image's boundary point.
         
         Args:
             img_render_points (Tensor): Image of projected points. Must reshape to shape (N, 2). 
                                         Only use first projected 'circle'. 
-            img_ref (Tensor): Reference image of catheter. 
-                              Must get skletonization of catheter, get coordinates of pixels at the boundary point, 
+            ref_catheter_skeleton (Tensor): Reference morphological skeleton of catheter. 
+                              Must get coordinates of pixels at the boundary, 
                               and reshape to shape (# of pixels inside the contour , 2).      
         Returns:
             loss (Tensor): Tip Chamfer loss.
         """
-        self.prepare_data(img_render_points, img_ref)
+        self.prepare_data(img_render_points, ref_catheter_skeleton)
 
         # Calculate pairwise Euclidean distances
         distances = torch.norm(self.img_render_points_first_circle_point_cloud[:, None, :] - self.ref_catheter_boundary_point_cloud[None, :, :], dim=2)
@@ -445,14 +356,10 @@ class BoundaryPointChamferLoss(nn.Module):
         
         return chamfer_loss
     
-    def prepare_data(self, img_render_points, img_ref):
+    def prepare_data(self, img_render_points, ref_catheter_skeleton):
         '''
         Method to prepare data for chamfer loss calculation.
         '''
-
-        # Height = 480, Width = 640
-        self.height = img_ref.shape[0]
-        self.width = img_ref.shape[1]
 
         # Extract last circle of projected points
         img_render_points_first_circle = img_render_points[0]
@@ -463,15 +370,11 @@ class BoundaryPointChamferLoss(nn.Module):
         # print("self.img_render_points_last_circle_point_cloud: ", self.img_render_points_last_circle_point_cloud)
 
 
-        # Get raw skeleton of catheter in reference image
         # Extract tip point on catheter skeleton. Then add a dimension to make it
         # technically count as a point cloud (shape (1, 2))
-        self.get_raw_centerline(img_ref)
-
         # print("self.img_raw_skeleton.shape: ", self.img_raw_skeleton.shape)
         # print("self.img_raw_skeleton: ", self.img_raw_skeleton)
-
-        self.ref_catheter_boundary_point_cloud = self.img_raw_skeleton[-1]
+        self.ref_catheter_boundary_point_cloud = ref_catheter_skeleton[-1]
         self.ref_catheter_boundary_point_cloud = self.ref_catheter_boundary_point_cloud.unsqueeze(0)
 
         # Flip the x and y coordinates in self.ref_catheter_tip_point_cloud: i.e., [[69, 43]] -> [[43, 69]]
@@ -479,63 +382,6 @@ class BoundaryPointChamferLoss(nn.Module):
 
         # print("self.ref_catheter_tip_point_cloud.shape: ", self.ref_catheter_tip_point_cloud.shape)
         # print("self.ref_catheter_tip_point_cloud: ", self.ref_catheter_tip_point_cloud)
-
-    def get_raw_centerline(self, img_ref): 
-        '''
-        Method to get the raw centerline of the catheter from the reference image.
-        '''
-
-        # convert to numpy array
-        img_ref = img_ref.cpu().detach().numpy().copy()
-
-        img_height = img_ref.shape[0]
-        img_width = img_ref.shape[1]
-
-        # perform skeletonization, need to extend the boundary of the image because of the way the skeletonization algorithm works (it looks at the 8 neighbors of each pixel)
-        extend_dim = int(60)
-        img_thresh_extend = np.zeros((img_height, img_width + extend_dim))
-        img_thresh_extend[0:img_height, 0:img_width] = img_ref / 1.0
-
-        # get the left boundary of the image
-        left_boundarylineA_id = np.squeeze(np.argwhere(img_thresh_extend[:, img_width - 1]))
-        left_boundarylineB_id = np.squeeze(np.argwhere(img_thresh_extend[:, img_width - 10]))
-
-        # get the center of the left boundary
-        extend_vec_pt1_center = np.array([img_width, (left_boundarylineA_id[0] + left_boundarylineA_id[-1]) / 2])
-        extend_vec_pt2_center = np.array(
-            [img_width - 5, (left_boundarylineB_id[0] + left_boundarylineB_id[-1]) / 2])
-        exten_vec = extend_vec_pt2_center - extend_vec_pt1_center
-
-        # avoid dividing by zero
-        if exten_vec[1] == 0:
-            exten_vec[1] += 0.00000001
-
-        # get the slope and intercept of the line
-        k_extend = exten_vec[0] / exten_vec[1]
-        b_extend_up = img_width - k_extend * left_boundarylineA_id[0]
-        b_extend_dw = img_width - k_extend * left_boundarylineA_id[-1]
-
-        # extend the ROI to the right, so that the skeletonization algorithm could be able to get the centerline
-        # then it could be able to get the intersection point with boundary
-        extend_ROI = np.array([
-            np.array([img_width, left_boundarylineA_id[0]]),
-            np.array([img_width, left_boundarylineA_id[-1]]),
-            np.array([img_width + extend_dim,
-                      int(((img_width + extend_dim) - b_extend_dw) / k_extend)]),
-            np.array([img_width + extend_dim,
-                      int(((img_width + extend_dim) - b_extend_up) / k_extend)])
-        ])
-
-        # fill the extended ROI with 1
-        img_thresh_extend = cv2.fillPoly(img_thresh_extend, [extend_ROI], 1)
-
-        # skeletonize the image
-        skeleton = skimage_morphology.skeletonize(img_thresh_extend)
-
-        # get the centerline of the image
-        img_raw_skeleton = np.argwhere(skeleton[:, 0:img_width] == 1)
-
-        self.img_raw_skeleton = torch.as_tensor(img_raw_skeleton).float()
 
 
 class TipDistanceLoss(nn.Module): 
@@ -547,7 +393,7 @@ class TipDistanceLoss(nn.Module):
         super(TipDistanceLoss, self).__init__()
         self.device = device
 
-    def forward(self, img_render_centerline_points, img_ref): 
+    def forward(self, img_render_centerline_points, ref_catheter_skeleton): 
         '''
         Calculate the Squared Distance loss between projected tip point (projected last centerline point) 
             and reference image's catheter tip.
@@ -555,23 +401,18 @@ class TipDistanceLoss(nn.Module):
         Args:
             img_render_centerline_points (Tensor): tensor of projected centerline points, Shape: (N, 2). 
                                                    Only use last projected 'point' as tip. 
-            img_ref (Tensor): Reference image of catheter. 
-                              Must get skletonization of catheter, get coordinates of pixels at the tip, 
+            ref_catheter_skeleton (Tensor): Reference morphological skeleton of catheter. 
+                              Must get coordinates of pixels at the tip, 
                               and reshape to shape (# of pixels inside the contour , 2).      
         Returns:
             loss (Tensor): Tip Squared Distance loss.
 
         '''
 
-        # Get reference image catheter's skeleton, tip, and boundary
-        self.get_raw_centerline(img_ref)
-        self.get_ref_contour(img_ref)
-
         # Flip the x and y coordinates in self.img_raw_skeleton: i.e., [[69, 43]] -> [[43, 69]]
-        self.img_raw_skeleton = self.img_raw_skeleton.flip(1)
+        self.img_raw_skeleton = ref_catheter_skeleton.flip(1)
         ref_skeleton_tip_point = self.img_raw_skeleton[0, :]
         
-
         proj_tip_point = img_render_centerline_points[-1, :]
         # print("proj_tip_point: ", proj_tip_point)
 
@@ -584,83 +425,6 @@ class TipDistanceLoss(nn.Module):
 
         return tip_distance_loss, tip_euclidean_distance_loss
 
-    def get_raw_centerline(self, img_ref): 
-        '''
-        Method to get the raw centerline of the catheter from the reference image.
-        '''
-
-        # convert to numpy array
-        img_ref = img_ref.cpu().detach().numpy().copy()
-
-        img_height = img_ref.shape[0]
-        img_width = img_ref.shape[1]
-
-        # perform skeletonization, need to extend the boundary of the image because of the way the skeletonization algorithm works (it looks at the 8 neighbors of each pixel)
-        extend_dim = int(60)
-        img_thresh_extend = np.zeros((img_height, img_width + extend_dim))
-        img_thresh_extend[0:img_height, 0:img_width] = img_ref / 1.0
-
-        # get the left boundary of the image
-        left_boundarylineA_id = np.squeeze(np.argwhere(img_thresh_extend[:, img_width - 1]))
-        left_boundarylineB_id = np.squeeze(np.argwhere(img_thresh_extend[:, img_width - 10]))
-
-        # get the center of the left boundary
-        extend_vec_pt1_center = np.array([img_width, (left_boundarylineA_id[0] + left_boundarylineA_id[-1]) / 2])
-        extend_vec_pt2_center = np.array(
-            [img_width - 5, (left_boundarylineB_id[0] + left_boundarylineB_id[-1]) / 2])
-        exten_vec = extend_vec_pt2_center - extend_vec_pt1_center
-
-        # avoid dividing by zero
-        if exten_vec[1] == 0:
-            exten_vec[1] += 0.00000001
-
-        # get the slope and intercept of the line
-        k_extend = exten_vec[0] / exten_vec[1]
-        b_extend_up = img_width - k_extend * left_boundarylineA_id[0]
-        b_extend_dw = img_width - k_extend * left_boundarylineA_id[-1]
-
-        # extend the ROI to the right, so that the skeletonization algorithm could be able to get the centerline
-        # then it could be able to get the intersection point with boundary
-        extend_ROI = np.array([
-            np.array([img_width, left_boundarylineA_id[0]]),
-            np.array([img_width, left_boundarylineA_id[-1]]),
-            np.array([img_width + extend_dim,
-                      int(((img_width + extend_dim) - b_extend_dw) / k_extend)]),
-            np.array([img_width + extend_dim,
-                      int(((img_width + extend_dim) - b_extend_up) / k_extend)])
-        ])
-
-        # fill the extended ROI with 1
-        img_thresh_extend = cv2.fillPoly(img_thresh_extend, [extend_ROI], 1)
-
-        # skeletonize the image
-        skeleton = skimage_morphology.skeletonize(img_thresh_extend)
-
-        # get the centerline of the image
-        img_raw_skeleton = np.argwhere(skeleton[:, 0:img_width] == 1)
-
-        self.img_raw_skeleton = torch.as_tensor(img_raw_skeleton).float()
-
-    def get_ref_contour(self, img_ref): 
-        '''
-        Method to get the reference image's catheter contour.
-        '''
-
-        # Convert reference image to numpy array of type np.uint8 to be able to use OpenCV
-        img_ref = img_ref.cpu().detach().numpy().copy().astype(np.uint8)
-
-        # Find contours in the binary mask
-        contours, _ = cv2.findContours(img_ref, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-        # Extract the largest contour (assuming it's the tube)
-        largest_contour = max(contours, key=cv2.contourArea)
-
-        # Extract coordinates of contour pixels
-        ref_catheter_contour_coordinates = largest_contour.squeeze()
-
-        # Convert coordinates to PyTorch tensor
-        self.ref_catheter_contour_point_cloud = torch.tensor(ref_catheter_contour_coordinates, dtype=torch.float)
-
 
 class BoundaryPointDistanceLoss(nn.Module): 
     '''
@@ -671,7 +435,7 @@ class BoundaryPointDistanceLoss(nn.Module):
         super(BoundaryPointDistanceLoss, self).__init__()
         self.device = device
 
-    def forward(self, img_render_centerline_points, img_ref): 
+    def forward(self, img_render_centerline_points, ref_catheter_skeleton): 
         '''
         Calculate the Squared Distance loss between projected base point (projected first centerline point) 
             and reference image's catheter boundary point.
@@ -679,19 +443,16 @@ class BoundaryPointDistanceLoss(nn.Module):
         Args:
             img_render_centerline_points (Tensor): tensor of projected centerline points, Shape: (N, 2). 
                                                    Only use first projected 'point' as base point. 
-            img_ref (Tensor): Reference image of catheter. 
-                              Must get skletonization of catheter, get coordinates of pixels at the tip, 
+            ref_catheter_skeleton (Tensor): Reference morphological skeleton of catheter. 
+                              Must get coordinates of pixels at the boundary, 
                               and reshape to shape (# of pixels inside the contour , 2).      
         Returns:
             loss (Tensor): Boundary Point Squared Distance loss.
 
         '''
-
-        # Get reference image catheter's skeleton, tip, and boundary
-        self.get_raw_centerline(img_ref)
         
         # Flip the x and y coordinates in self.img_raw_skeleton: i.e., [[69, 43]] -> [[43, 69]]
-        self.img_raw_skeleton = self.img_raw_skeleton.flip(1)
+        self.img_raw_skeleton = ref_catheter_skeleton.flip(1)
 
         ref_boundary_point = self.img_raw_skeleton[-1, :]
         # print("ref_tip_point: ", ref_boundary_point)
@@ -702,64 +463,7 @@ class BoundaryPointDistanceLoss(nn.Module):
         tip_distance_loss = torch.mean((proj_boundary_point - ref_boundary_point) ** 2)
 
         return tip_distance_loss
-
-    def get_raw_centerline(self, img_ref): 
-        '''
-        Method to get the raw centerline of the catheter from the reference image.
-        '''
-
-        # convert to numpy array
-        img_ref = img_ref.cpu().detach().numpy().copy()
-
-        img_height = img_ref.shape[0]
-        img_width = img_ref.shape[1]
-
-        # perform skeletonization, need to extend the boundary of the image because of the way the skeletonization algorithm works (it looks at the 8 neighbors of each pixel)
-        extend_dim = int(60)
-        img_thresh_extend = np.zeros((img_height, img_width + extend_dim))
-        img_thresh_extend[0:img_height, 0:img_width] = img_ref / 1.0
-
-        # get the left boundary of the image
-        left_boundarylineA_id = np.squeeze(np.argwhere(img_thresh_extend[:, img_width - 1]))
-        left_boundarylineB_id = np.squeeze(np.argwhere(img_thresh_extend[:, img_width - 10]))
-
-        # get the center of the left boundary
-        extend_vec_pt1_center = np.array([img_width, (left_boundarylineA_id[0] + left_boundarylineA_id[-1]) / 2])
-        extend_vec_pt2_center = np.array(
-            [img_width - 5, (left_boundarylineB_id[0] + left_boundarylineB_id[-1]) / 2])
-        exten_vec = extend_vec_pt2_center - extend_vec_pt1_center
-
-        # avoid dividing by zero
-        if exten_vec[1] == 0:
-            exten_vec[1] += 0.00000001
-
-        # get the slope and intercept of the line
-        k_extend = exten_vec[0] / exten_vec[1]
-        b_extend_up = img_width - k_extend * left_boundarylineA_id[0]
-        b_extend_dw = img_width - k_extend * left_boundarylineA_id[-1]
-
-        # extend the ROI to the right, so that the skeletonization algorithm could be able to get the centerline
-        # then it could be able to get the intersection point with boundary
-        extend_ROI = np.array([
-            np.array([img_width, left_boundarylineA_id[0]]),
-            np.array([img_width, left_boundarylineA_id[-1]]),
-            np.array([img_width + extend_dim,
-                      int(((img_width + extend_dim) - b_extend_dw) / k_extend)]),
-            np.array([img_width + extend_dim,
-                      int(((img_width + extend_dim) - b_extend_up) / k_extend)])
-        ])
-
-        # fill the extended ROI with 1
-        img_thresh_extend = cv2.fillPoly(img_thresh_extend, [extend_ROI], 1)
-
-        # skeletonize the image
-        skeleton = skimage_morphology.skeletonize(img_thresh_extend)
-
-        # get the centerline of the image
-        img_raw_skeleton = np.argwhere(skeleton[:, 0:img_width] == 1)
-
-        self.img_raw_skeleton = torch.as_tensor(img_raw_skeleton).float()
-            
+  
 
 if __name__ == '__main__': 
     '''

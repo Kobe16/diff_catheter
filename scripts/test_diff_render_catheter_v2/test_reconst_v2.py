@@ -1,3 +1,8 @@
+'''
+File used to create a 3D model of a Bezier curve tube, and then 
+project that model onto the 2D image plane. This file is used each
+time we create a new bezier curve (i.e. every run of the forward pass)
+'''
 import sys
 import math
 import numpy as np
@@ -116,6 +121,10 @@ class ConstructionBezier(nn.Module):
 '''
     
     def __init__(self): 
+        '''
+        Constructor to initialize the class with set curve & camera parameters
+        Also, set manual seed for random number generation --> for reproducibility. 
+        '''
         super().__init__()
 
         self.fig = plt.figure()
@@ -174,92 +183,16 @@ class ConstructionBezier(nn.Module):
         cam_RT_H = torch.tensor([[1., 0., 0., 0.], [0., 1., 0., 0.], [0., 0., 1., 0.], [0., 0., 0., 1.]])
         invert_y = torch.tensor([[1., 0., 0., 0.], [0., 1., 0., 0.], [0., 0., 1., 0.], [0., 0., 0., 1.]])
         self.cam_RT_H = torch.matmul(invert_y, cam_RT_H)
-
-    def getBezierCurve(self, control_pts):
-        """ takes control points as input, calculates positions and 
-        derivatives of points along the Bezier curve, converts the 
-        coordinates to the camera frame, and stores the results in 
-        self.pos_bezier_cam and self.der_bezier_cam respectively. 
-
-        control_pts -- 
-        """
-
-        self.num_samples = 200
-        P1 = control_pts[0, :]
-        P1p = control_pts[1, :]
-        P2 = control_pts[2, :]
-        P2p = control_pts[3, :]
-
-        sample_list = torch.linspace(0, 1, self.num_samples)
-
-        # Get positions and normals from samples along bezier curve
-        pos_bezier = torch.zeros(self.num_samples, 3)
-        der_bezier = torch.zeros(self.num_samples, 3)
-        for i, s in enumerate(sample_list):
-            pos_bezier[i, :] = (1 - s)**3 * P1 + 3 * s * (1 - s)**2 * \
-                P1p + 3 * (1 - s) * s**2 * P2p + s**3 * P2
-            der_bezier[i, :] = -(1 - s)**2 * P1 + ((1 - s)**2 - 2 * s * (1 - s)) * P1p + (-s**2 + 2 *
-                                                                                          (1 - s) * s) * P2p + s**2 * P2
-
-        # Convert positions and normals to camera frame
-        self.pos_bezier_3D = pos_bezier
-        pos_bezier_H = torch.cat((pos_bezier, torch.ones(self.num_samples, 1)), dim=1)
-
-        pos_bezier_cam_H = torch.transpose(torch.matmul(self.cam_RT_H, torch.transpose(pos_bezier_H, 0, 1)), 0, 1)
-        self.pos_bezier_cam = pos_bezier_cam_H[1:, :-1]
-
-        # print(pos_bezier)
-        # pos_bezier.register_hook(print)
-        # P1.register_hook(print)
-        # P1p.register_hook(print)
-        # P2.register_hook(print)
-        # P2p.register_hook(print)
-
-        der_bezier_H = torch.cat((der_bezier, torch.zeros((self.num_samples, 1))), dim=1)
-        der_bezier_cam_H = torch.transpose(torch.matmul(self.cam_RT_H, torch.transpose(der_bezier_H[1:, :], 0, 1)), 0,
-                                           1)
-        self.der_bezier_cam = der_bezier_cam_H[:, :-1]
-
-        # pdb.set_trace() 
-
-    def getAnyBezierCurve(self, para, P0):
-
-        num_samples = 200
-        sample_list = torch.linspace(0, 1, num_samples)
-
-        P1 = torch.tensor([0.02, 0.002, 0.0])
-        PC = torch.tensor([para[0], para[1], para[2]])
-        P2 = torch.tensor([para[3], para[4], para[5]])
-        P1p = 2 / 3 * PC + 1 / 3 * P1
-        P2p = 2 / 3 * PC + 1 / 3 * P2
-
-        # Get positions and normals from samples along bezier curve
-        pos_bezier = torch.zeros(num_samples, 3)
-        der_bezier = torch.zeros(num_samples, 3)
-        for i, s in enumerate(sample_list):
-            pos_bezier[i, :] = (1 - s)**3 * P1 + 3 * s * (1 - s)**2 * \
-                P1p + 3 * (1 - s) * s**2 * P2p + s**3 * P2
-
-        return pos_bezier
-
-    '''
-    def getProjPointCam(self, p, cam_K):
-        # p is of size R^(Nx3)
-        if p.shape == (3, ):
-            p = torch.unsqueeze(p, dim=0)
-
-        divide_z = torch.div(torch.transpose(p[:, :-1], 0, 1), p[:, -1])
-
-        # print(p[:, -1].transpose(), '\n', '------------')
-
-        divide_z = torch.cat((divide_z, torch.ones(1, p.shape[0])), dim=0)
-
-        # print(torch.matmul(cam_K, divide_z)[:-1, :])
-        # pdb.set_trace()
-        return torch.transpose(torch.matmul(cam_K, divide_z)[:-1, :], 0, 1)
-    '''
     
     def isPointInImage(self, p_proj, width, height):
+        '''
+        Check if a projected point is within the image frame
+
+        Args:
+            p_proj (torch.tensor): projected point
+            width (int): width of image
+            height (int): height of image
+        '''
         if torch.all(torch.isnan(p_proj)):
             # print('NaN')
             return False
@@ -276,11 +209,15 @@ class ConstructionBezier(nn.Module):
 # Helper functions for plotting using matplotlib
 
     def set_axes_equal(self, ax: plt.Axes):
-        """Set 3D plot axes to equal scale.
+        """
+        Set 3D plot axes to equal scale.
 
         Make axes of 3D plot have equal scale so that spheres appear as
         spheres and cubes as cubes.  Required since `ax.axis('equal')`
         and `ax.set_aspect('equal')` don't work on 3D.
+
+        Args:
+            ax (plt.Axes): Matplotlib axes to set equal.
         """
         limits = np.array([
             ax.get_xlim3d(),
@@ -292,6 +229,15 @@ class ConstructionBezier(nn.Module):
         self._set_axes_radius(ax, origin, radius)
 
     def _set_axes_radius(self, ax, origin, radius):
+        '''
+        Set axes radius. Works in conjunction with set_axes_equal. 
+
+        Args:
+            ax (plt.Axes): Matplotlib axes to set equal.
+            origin (np.array): origin of axes
+            radius (float): radius of axes
+        '''
+
         x, y, z = origin
         ax.set_xlim3d([x - radius, x + radius])
         ax.set_ylim3d([y - radius, y + radius])
@@ -304,6 +250,16 @@ class ConstructionBezier(nn.Module):
 # Helper functions for obtaining the tangent, normal and binormal vectors of a bezier curve
 
     def getBezierTNB(self, bezier_pos, bezier_der, bezier_snd_der):
+        '''
+        Get the tangent, normal and binormal vectors of a bezier curve. 
+        Add self.epsilon to the denominator to avoid division by zero (to avoid
+        getting NaN values in the tensors).
+
+        Args:
+            bezier_pos (torch.tensor): bezier curve points
+            bezier_der (torch.tensor): bezier curve first derivative
+            bezier_snd_der (torch.tensor): bezier curve second derivative
+        '''
 
         bezier_der_n = torch.linalg.norm(bezier_der, ord=2, dim=1)
         # self.bezier_tangent = bezier_der / torch.unsqueeze(bezier_der_n, dim=1)
@@ -328,6 +284,16 @@ class ConstructionBezier(nn.Module):
         assert not torch.any(torch.isnan(bezier_binormal))
 
     def getBezierNormal(self, bezier_der, bezier_snd_der): 
+        '''
+        Get the normal vector of a bezier curve.
+        Add self.epsilon to the denominator to avoid division by zero (to avoid
+        getting NaN values in the tensors).
+
+        Args:
+            bezier_der (torch.tensor): bezier curve first derivative
+            bezier_snd_der (torch.tensor): bezier curve second derivative
+
+        '''
         bezier_der_n = torch.linalg.norm(bezier_der, ord=2, dim=1)
         # self.bezier_tangent = bezier_der / torch.unsqueeze(bezier_der_n, dim=1)
 
@@ -345,6 +311,15 @@ class ConstructionBezier(nn.Module):
         return bezier_normal
     
     def getBezierBinormal(self, bezier_der, bezier_snd_der): 
+        '''
+        Get the binormal vector of a bezier curve.
+        Add self.epsilon to the denominator to avoid division by zero (to avoid
+        getting NaN values in the tensors).
+
+        Args:
+            bezier_der (torch.tensor): bezier curve first derivative
+            bezier_snd_der (torch.tensor): bezier curve second derivative
+        '''
         bezier_binormal_numerator = torch.linalg.cross(bezier_der, bezier_snd_der)
         bezier_binormal_numerator_n = torch.linalg.norm(bezier_binormal_numerator, ord=2, dim=1)
 
@@ -367,6 +342,9 @@ class ConstructionBezier(nn.Module):
         because division by zero is mathematically undefined. To avoid NaN values, add a small epsilon 
         value to the denominator before performing the division. 
         This will prevent division by exactly zero and keep the vectors valid. 
+
+        Args:
+            set_of_vectors (torch.tensor): set of vectors to normalize
         '''
         normalized_set_of_vectors = set_of_vectors / (torch.linalg.norm(set_of_vectors, ord=2, dim=0) + self.epsilon)
         return normalized_set_of_vectors
@@ -375,6 +353,10 @@ class ConstructionBezier(nn.Module):
         '''
         Method to get the translated version of a set of vectors (of the shape: (num_samples, 3)). 
         Adds respective point on Bezier curve to the vector (s.t. point is considered 'start' of translated vector). 
+
+        Args:
+            pos_bezier (torch.tensor): point on Bezier curve
+            set_of_vectors (torch.tensor): set of vectors to translate
         '''
         translated_set_of_vectors = pos_bezier + set_of_vectors
         return translated_set_of_vectors
@@ -391,10 +373,10 @@ class ConstructionBezier(nn.Module):
         Method to calculate random point on a circle in 3-dimensions. 
 
         Args: 
-            radius: radius value of circle
+            radius (int): radius value of circle
             center_point (tensor): center point of circle; i.e., current point on Bezier curve
-            normal_vec: normal vector at that point on Bezier curve
-            binormal_vec: binormal vector at that point on Bezier curve
+            normal_vec (tensor): normal vector at that point on Bezier curve
+            binormal_vec (tensor): binormal vector at that point on Bezier curve
         '''
         rand_dist_from_center = radius * torch.sqrt(torch.rand(1))
         rand_angle = 2 * math.pi * torch.rand(1)
@@ -423,7 +405,9 @@ class ConstructionBezier(nn.Module):
 
     def plot3dPoints(self, show_vector_lines, plot_bezier_points, set_of_vectors=None): 
         '''
-        Method to plot Bezier vectors using MatPlotLib
+        Method to plot Bezier vectors using MatPlotLib. 
+        NOTE: Plot will come out weird if using radius that is substantially larger than the 
+        length of the actual curve. 
 
         Args: 
             pos_bezier (Tensor): Points along Bezier curve
@@ -477,6 +461,9 @@ class ConstructionBezier(nn.Module):
 
 
     def run3dPlot(self): 
+        '''
+        Method to use in conjunction with plot3dPoints() to plot Bezier curve and TNB vectors.
+        '''
 
         self.ax.set_box_aspect([2,2,2]) 
         self.set_axes_equal(self.ax)
@@ -490,6 +477,9 @@ class ConstructionBezier(nn.Module):
         plt.show()
 
     def plot3dBezierCylinder(self): 
+        '''
+        Method to plot 3D cylinder mesh points using MatPlotLib.
+        '''
         # Get Cylinder mesh points
         for i, (pos_vec) in enumerate(self.pos_bezier): 
             for j in range(self.samples_per_circle + self.bezier_surface_resolution): 
@@ -516,6 +506,9 @@ class ConstructionBezier(nn.Module):
         Method to get the raw centerline of the catheter from the reference image.
         In this file, only used in draw2DCylinderImage() method to get the centerline 
         of the catheter in the reference image for show. 
+
+        Args:
+            img_ref (Tensor): Reference image of catheter
         '''
 
         # convert to numpy array
@@ -586,6 +579,11 @@ class ConstructionBezier(nn.Module):
     def getBezierProjImg(self, pos_bezier=None, der_bezier=None, double_der_bezier=None):
         '''
         Convert positions, tangents, normals to camera frame
+
+        Args:
+            pos_bezier (Tensor): 3D positions of bezier curve
+            der_bezier (Tensor): 3D tangents of bezier curve
+            double_der_bezier (Tensor): 3D normals of bezier curve
         '''
 
         # TODO: convert 3d world cyinder mesh points to camera frame
@@ -604,6 +602,13 @@ class ConstructionBezier(nn.Module):
         self.bezier_proj_centerline_img = self.getProjPointCam(self.bezier_pos_centerline_cam[:], self.cam_K)
     
     def getProjPointCam(self, p, cam_K):
+        '''
+        Helper method to project 3D points to 2D image plane
+
+        Args:
+            p (Tensor): 3D points to project
+            cam_K (Tensor): camera intrinsics
+        '''
         # p is of size R^(Nx3)
         if p.shape == (3, ):
             p = torch.unsqueeze(p, dim=0)
@@ -626,6 +631,10 @@ class ConstructionBezier(nn.Module):
         return torch.transpose(torch.matmul(cam_K, divide_z)[:-1, :], 0, 1)
 
     def draw2DCenterlineImage(self):
+        '''
+        Draw projected centerline on reference image. 
+        Used in original diff-render directory from Fei's code. 
+        '''
 
         ## numpy copy
         centerline_draw_img_rgb = self.raw_img_rgb.copy()
@@ -698,7 +707,14 @@ class ConstructionBezier(nn.Module):
 # Functions to get SINGLE CIRCLE projected image
 
     def getSegmentedCircleProjImg(self, segmented_circle): 
-         # Convert 3D world position to camera frame
+        '''
+        Get projected image of segmented circle (i.e., 1 cross-sectional circle of the 3d cylinder model)
+
+        Args:
+            segmented_circle: torch tensor of shape (self.samples_per_circle + self.bezier_surface_resolution, 3) 
+                              representing the 3d points of the segmented circle
+        '''
+        # Convert 3D world position to camera frame
         pos_bezier_H = torch.cat((segmented_circle, torch.ones(self.num_samples, 1)), dim=1)
         # print("\n pos_bezier_H shape: " + str(pos_bezier_H.size()))
         # print("\n pos_bezier_H: \n" + str(pos_bezier_H))
@@ -716,6 +732,10 @@ class ConstructionBezier(nn.Module):
         # print("\n self.bezier_proj_img: \n" + str(self.bezier_proj_img))
 
     def draw2DCircleImage(self): 
+        '''
+        Draw 2D image of segmented circle (i.e., 1 cross-sectional circle of the 3d cylinder model)
+        Use in conjunction with getSegmentedCircleProjImg()
+        '''
         ## numpy copy
         segmented_circle_draw_img_rgb = self.raw_img_rgb.copy()
 
@@ -761,6 +781,11 @@ class ConstructionBezier(nn.Module):
 # Functions to get ENTIRE CYLINDER projected image (with ref img in background)
 
     def getCylinderMeshProjImg(self): 
+        '''
+        Method to get projected image of cylinder mesh (i.e., 3d cylinder model). 
+        Projected 2d points will be stored in self.bezier_proj_img
+        Shape of self.bezier_proj_img: (self.num_samples, self.samples_per_circle + self.bezier_surface_resolution, 2)
+        '''
         # print("\n cylinder_mesh shape: " + str(self.cylinder_mesh_points.size()))
         # print("\n cylinder_mesh: \n" + str(self.cylinder_mesh_points))
 
@@ -792,6 +817,13 @@ class ConstructionBezier(nn.Module):
         # print("\n self.bezier_proj_img: " + str(self.bezier_proj_img))
 
     def getProjCylPointCam(self, p, cam_K): 
+        '''
+        Helper method to get projected image of cylinder mesh (i.e., 3d cylinder model).
+
+        Args:
+            p: 3d points of cylinder mesh in camera frame. Shape: (R, Nx3)
+            cam_K: Camera intrinsic matrix. Shape: (3x3)
+        '''
         # p is of size R^(Nx3)
         if p.shape == (self.num_samples, 3):
             p = torch.unsqueeze(p, dim=1)
@@ -827,6 +859,10 @@ class ConstructionBezier(nn.Module):
         Draw the reference centerline and the reference tip and boundary points of the centerline. 
             - Given centerline points, loop through each point, and draw 1 red pixel on the reference image.
             - At the first and last point, draw a large green circle to indicate the tip and boundary points.
+
+        Args:
+            img_ref: Reference image to draw projected cylinder image onto.
+            save_img_path: Path to save the image to.
         '''
 
         ## numpy copy
@@ -885,8 +921,6 @@ class ConstructionBezier(nn.Module):
         cv2.circle(segmented_circle_draw_img_rgb, pBoundary, 2, (255, 0, 0), -1)
 
 
-
-
         # ---------------
         # plot with
         # ---------------
@@ -911,6 +945,7 @@ class ConstructionBezier(nn.Module):
     def plotAll2dProjPoints(self): 
         '''
         Method to plot ALL 2d projected points on the image plane, even the outliers. 
+        Scales graph boundaries so that you can view all points. 
         Must have called method getCylinderMeshProjImg() before this to fill out self.bezier_proj_img
         '''
         # Plot bezier_proj_img
@@ -1007,17 +1042,6 @@ class ConstructionBezier(nn.Module):
 ###################################################################################################
 ###################################################################################################
 
-# Function to generate the cylinder mesh in PyTorch3D
-
-    def getBezierCylinderMesh(self): 
-        self.bezier_mesh = torch.zeros(self.num_samples, self.bezier_surface_resolution, 3)
-
-
-
-###################################################################################################
-###################################################################################################
-###################################################################################################
-
 
     def getBezierCurveCylinder(self, p_start, para_gt): 
         '''
@@ -1026,7 +1050,8 @@ class ConstructionBezier(nn.Module):
 
         Args: 
             para_gt: Ground truth parameters for bezier curve. Extract bezier control points from this. 
-                     i.e., para_gt[0:3] is starting point for bezier curve. 
+                     para_gt[0:3] = second control point of quadratic bezier curve
+                     para_gt[3:6] = third control point of quadratic bezier curve
             
             Deprecated: 
                 p_start: Starting point for bezier curve (used to be fixed and not updated by training)
@@ -1127,6 +1152,10 @@ class ConstructionBezier(nn.Module):
 ###################################################################################################
 
 if __name__ == '__main__': 
+    '''
+    Main function used to test out plotting of bezier curves and cylinder meshes.
+    Used early on in process to test out if this file worked. Not really used anymore.
+    '''
 
     cubic_test_control_points1 = torch.tensor([[0., 0., 0.], 
                                         [0., 1., 2.5], 
