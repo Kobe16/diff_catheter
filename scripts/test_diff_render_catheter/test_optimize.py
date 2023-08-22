@@ -1,3 +1,8 @@
+'''
+OLD FILE -- NOT USED ANYMORE. GO TO test_diff_render_catheter_v2 directory
+File used to run optimization on the catheter parameters. 
+Uses Adam optimizer. 
+'''
 import sys
 from turtle import pd
 
@@ -37,7 +42,18 @@ from tqdm.notebook import tqdm
 
 
 class CatheterOptimizeModel(nn.Module): 
+    '''
+    This class is used to optimize the catheter parameters.
+    '''
     def __init__(self, p_start, image_ref, gpu_or_cpu): 
+        '''
+        This function initializes the catheter optimization model.
+
+        Args:
+            p_start (tensor): starting point of the catheter
+            image_ref (numpy array): reference image to compare to
+            gpu_or_cpu (str): either 'cuda' or 'cpu'
+        '''
         super().__init__()
 
         ###========================================================
