@@ -103,6 +103,30 @@ class GenerateRefData():
 
         return self.ref_catheter_contour_point_cloud
         
+    def get_tip_point(self): 
+        # Find centerline of catheter
+
+        # Extract tip
+
+        # Find contour of catheter
+
+        # Find closest point on contour to tip (extract that shortest distance)
+
+        # Slice the image so that you get an image with the tip at the 
+        # center of the image and the image length and width are 2 * shortest distance
+
+        # Find contour of original reference image again, but inside this sliced image
+
+        # Use OpenCV to find central moments of that smaller contour
+
+        # Travel from central moment to tip point (travel with distance of shortest distance)
+
+        # At the end of that travel, you should get the tip point. Convert back to OG image coords
+
+        # OPTIONAL: Find the closest point between the tip point and the contour. That is 
+        # your true tip point. 
+
+        return 0
 
 class ChamferLossWholeImage(nn.Module):
     '''

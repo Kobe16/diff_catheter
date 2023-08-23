@@ -140,6 +140,28 @@ if __name__ == "__main__":
     plt.show()
 
 
+        
+    # Get 2d tip from reference image (using openCV contour detection + moments)
+    tip_x, tip_y = generate_ref_data.get_tip_point()
+
+    print("tip_x: ", tip_x)
+    print("tip_y: ", tip_y)
+
+    # Plot centerline and contour together
+    fig3, ax3 = plt.subplots()
+    ax3.plot(centerline_ref[:, 1], centerline_ref[:, 0])
+    ax3.plot(ref_catheter_contour_point_cloud[:, 0], ref_catheter_contour_point_cloud[:, 1])
+    ax3.plot(tip_x, tip_y)
+    ax3.set_title('Reference Image Catheter Contour and Centerline')
+    ax3.set_xlim([0, 640])
+    ax3.set_ylim([480, 0])
+    # Set axes titles
+    ax3.set_xlabel('Width (pixels)')
+    ax3.set_ylabel('Height (pixels)')
+    plt.show()
+
+
+
 
     og_plot_points = torch.tensor([[0.02, 0.002, 0.0], 
                                 [0.01958988, 0.00195899, 0.09690406], 
