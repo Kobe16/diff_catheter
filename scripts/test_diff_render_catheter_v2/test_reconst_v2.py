@@ -963,6 +963,44 @@ class ConstructionBezier(nn.Module):
         plt.tight_layout()
         plt.show()
 
+    def getNumPointsInRefCatheter(self):
+        '''
+        Method to get the number of points in the reference catheter. 
+        '''
+
+        number_of_proj_points_in_ref_catheter = 0
+
+        ## numpy copy
+        raw_img_gray = self.raw_img_gray.copy()
+
+        ## torch clone
+        bezier_proj_img = torch.clone(self.bezier_proj_img)
+
+        # print("segmented_circle_draw_img_rgb.shape: ", segmented_circle_draw_img_rgb.shape)
+        # print("segmented_circle_draw_img_rgb.shape[0]: ", segmented_circle_draw_img_rgb.shape[0])
+        # print("segmented_circle_draw_img_rgb.shape[1]: ", segmented_circle_draw_img_rgb.shape[1])
+
+        intensity_threshold = 100
+
+        for i in range(bezier_proj_img.shape[0] - 1): 
+            for j in range(bezier_proj_img.shape[1] - 1):
+                if not self.isPointInImage(bezier_proj_img[i, j, :], raw_img_gray.shape[1], raw_img_gray.shape[0]):
+                    continue
+
+                p1 = (int(bezier_proj_img[i, j, 0]), int(bezier_proj_img[i, j, 1]))
+                # print("p1: " + str(p1))
+                # print("BGR value at p1: ", raw_img_gray[p1[1], p1[0]])
+                if raw_img_gray[p1[1], p1[0]] > intensity_threshold:
+                    number_of_proj_points_in_ref_catheter += 1
+                    # print("Point " + str(p1) + " is in the reference catheter.")
+                # else: 
+                    # print("Point " + str(p1) + " is NOT in the reference catheter.")
+
+        # print("Number of points in reference catheter: ", number_of_proj_points_in_ref_catheter)
+        # print("Total number of points: ", self.num_samples * (self.samples_per_circle + self.bezier_surface_resolution))
+        # print("Percentage of points in reference catheter: ", number_of_proj_points_in_ref_catheter / (self.num_samples * (self.samples_per_circle + self.bezier_surface_resolution)))
+
+        return number_of_proj_points_in_ref_catheter / (self.num_samples * (self.samples_per_circle + self.bezier_surface_resolution))
 
 # [DON'T USE THIS] Function to get 2D image of the cylinder mesh, without reference image 
 

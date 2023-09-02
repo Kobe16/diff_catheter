@@ -436,15 +436,22 @@ class TipDistanceLoss(nn.Module):
         # Flip the x and y coordinates in self.img_raw_skeleton: i.e., [[69, 43]] -> [[43, 69]]
         self.img_raw_skeleton = ref_catheter_skeleton.flip(1)
         ref_skeleton_tip_point = self.img_raw_skeleton[0, :]
+        # print('ref_skeleton_tip_point: ', ref_skeleton_tip_point)
+
+        ground_truth_tip_point = torch.tensor([339.0, 68.0], dtype=torch.float, requires_grad=False)
         
         proj_tip_point = img_render_centerline_points[-1, :]
         # print("proj_tip_point: ", proj_tip_point)
 
         # Compute squared distance loss
-        tip_distance_loss = torch.mean((proj_tip_point - ref_skeleton_tip_point) ** 2)
+        # tip_distance_loss = torch.mean((proj_tip_point - ref_skeleton_tip_point) ** 2)
+        tip_distance_loss = torch.mean((proj_tip_point - ground_truth_tip_point) ** 2)
+
 
         # Compute euclidean distance loss (not used in loss computation -- only for figure generation)
-        tip_euclidean_distance_loss = torch.norm(proj_tip_point - ref_skeleton_tip_point, p=2).detach().cpu().numpy().copy()
+        # tip_euclidean_distance_loss = torch.norm(proj_tip_point - ref_skeleton_tip_point, p=2).detach().cpu().numpy().copy()
+        tip_euclidean_distance_loss = torch.norm(proj_tip_point - ground_truth_tip_point, p=2).detach().cpu().numpy().copy()
+
 
 
         return tip_distance_loss, tip_euclidean_distance_loss

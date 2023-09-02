@@ -29,7 +29,7 @@ if __name__ == "__main__":
     # Parameters to plot: 
     p_start = torch.tensor([0.02, 0.008, 0.054])
 
-    para_final = torch.tensor([ 0.0167, 0.0131, 0.0984, 0.0059, -0.0449, 0.2355], dtype=torch.float, requires_grad=False)
+    para_final = torch.tensor([ 0.0243,  0.0168,  0.1252,  0.0051, -0.0450,  0.2348], dtype=torch.float, requires_grad=False)
 
     case_naming = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/scripts/test_diff_render_catheter_v2/blender_imgs/test_catheter_gt1'
     img_save_path = case_naming + '.png'
@@ -87,6 +87,9 @@ if __name__ == "__main__":
     # Plot ALL 2d projected points
     build_bezier.plotAll2dProjPoints()
 
+    # Get number of projected points inside reference catheter's 2d contour
+    percent_in_contour = build_bezier.getNumPointsInRefCatheter()
+
     ###========================================================
     ### 4) RUN LOSS FUNCTION JUST TO GET CONTOUR AND SKELETON (FOR SRC)
     ###========================================================
@@ -142,24 +145,27 @@ if __name__ == "__main__":
 
         
     # Get 2d tip from reference image (using openCV contour detection + moments)
-    tip_x, tip_y = generate_ref_data.get_tip_point()
+    # tip_x, tip_y = generate_ref_data.get_tip_point()
 
-    print("tip_x: ", tip_x)
-    print("tip_y: ", tip_y)
+    # print("tip_x: ", tip_x)
+    # print("tip_y: ", tip_y)
 
     # Plot centerline and contour together
     fig3, ax3 = plt.subplots()
     ax3.plot(centerline_ref[:, 1], centerline_ref[:, 0])
     ax3.plot(ref_catheter_contour_point_cloud[:, 0], ref_catheter_contour_point_cloud[:, 1])
-    ax3.plot(tip_x, tip_y)
+    # ax3.plot(tip_x, tip_y)
     ax3.set_title('Reference Image Catheter Contour and Centerline')
-    ax3.set_xlim([0, 640])
-    ax3.set_ylim([480, 0])
+    # ax3.set_xlim([0, 640])
+    # ax3.set_ylim([480, 0])
+    ax3.set_xlim([330, 350])
+    ax3.set_ylim([80, 60])
     # Set axes titles
     ax3.set_xlabel('Width (pixels)')
     ax3.set_ylabel('Height (pixels)')
     plt.show()
 
+    # Real tip: [339, 68]
 
 
 

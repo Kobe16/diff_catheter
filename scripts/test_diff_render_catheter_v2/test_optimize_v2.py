@@ -82,6 +82,7 @@ class CatheterOptimizeModel(nn.Module):
 
         # Declare self.tip_euclidean_distance_loss as a variable that'll hold a single numpy scalar value
         self.tip_euclidean_distance_loss = None
+        self.number_percent_pts_within_catheter = None
 
 
         ###========================================================
@@ -176,6 +177,7 @@ class CatheterOptimizeModel(nn.Module):
         # Plot 2D projected Bezier Cylinder mesh points
         # print("cylinder_mesh_points: ", self.build_bezier.cylinder_mesh_points)
         self.build_bezier.draw2DCylinderImage(self.image_ref, save_img_path)
+        self.number_percent_pts_within_catheter = self.build_bezier.getNumPointsInRefCatheter()
 
         # TODO: add function to save image to file
 
@@ -197,7 +199,7 @@ class CatheterOptimizeModel(nn.Module):
         # loss_boundary_point_distance_loss = self.boundary_point_distance_loss(self.build_bezier.bezier_proj_img, self.ref_catheter_centerline)
 
 
-        weight = torch.tensor([1.0, 1.0])
+        weight = torch.tensor([1.0, 0.1])
         loss = loss_contour * weight[0] + loss_tip_distance * weight[1]
 
 
@@ -268,6 +270,7 @@ if __name__ == '__main__':
     # Declare loss history lists to keep track of loss values
     proj_end_effector_loss_history = []
     d3d_end_effector_loss_history = []
+    proj_pt_within_catheter_loss_history = []
     # Ground Truth parameters for catheter used in SRC presentation
     para_gt = torch.tensor([0.02003904, 0.0016096, 0.13205799, 0.00489567, -0.03695673, 0.196168896], dtype=torch.float, device=gpu_or_cpu, requires_grad=False)
     end_effector_gt = para_gt[3:6]
@@ -333,6 +336,7 @@ if __name__ == '__main__':
         # end_effector_loss_history.append(torch.norm((catheter_optimize_model.para_init[3:6] - end_effector_gt), p=2).item())
         proj_end_effector_loss_history.append(catheter_optimize_model.tip_euclidean_distance_loss.item())
         d3d_end_effector_loss_history.append(torch.norm((catheter_optimize_model.para_init[3:6] - end_effector_gt), p=2).item())
+        proj_pt_within_catheter_loss_history.append(catheter_optimize_model.number_percent_pts_within_catheter)
 
         # Update the progress bar
         loop.set_description('Optimizing')
@@ -370,6 +374,20 @@ if __name__ == '__main__':
     ax2.set_xlim([0, len(d3d_end_effector_loss_history)])
     ax2.set_ylim([0, 0.05])
     ax2.grid(True)
+    plt.show()
+
+    # Given array of values proj_pt_within_catheter_loss_history, create plot of percent vs. iterations
+    iterations_x_axis_pct = list(range(len(proj_pt_within_catheter_loss_history)))
+    print("proj_pt_within_catheter_loss_history: ", proj_pt_within_catheter_loss_history)
+    fig3 = plt.figure()
+    ax3 = fig3.add_subplot(111)
+    fig3.suptitle('Percentage of Projected Points Within Catheter Loss History')
+    ax3.plot(iterations_x_axis_pct, proj_pt_within_catheter_loss_history)
+    ax3.set_xlabel('Iterations')
+    ax3.set_ylabel('Percentage (%)')
+    ax3.set_xlim([0, len(proj_pt_within_catheter_loss_history)])
+    ax3.set_ylim([0, 100])
+    ax3.grid(True)
     plt.show()
 
 

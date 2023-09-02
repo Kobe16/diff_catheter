@@ -650,7 +650,7 @@ if __name__ == '__main__':
     ###========================================================
     start_gt = torch.tensor([0.02, 0.008, 0.054])
 
-    para_final = torch.tensor([ 0.0167, 0.0131, 0.0984, 0.0059, -0.0449, 0.2355])
+    para_final = torch.tensor([ 0.0243,  0.0168,  0.1252,  0.0051, -0.0450,  0.2348])
     para_gt = torch.tensor([0.02003904, 0.0016096, 0.13205799, 0.00489567, -0.03695673, 0.196168896])
 
     case_naming = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/scripts/diff_render/blender_imgs/diff_render_1'
