@@ -1,0 +1,127 @@
+.
+├── README.md
+├── blender_files
+│   ├── render_bezier.blend
+│   ├── render_bezier.blend1
+│   ├── render_bezier_blender.py
+│   ├── rod_original (copy).blend
+│   ├── rod_original (copy).blend1
+│   ├── rod_original.blend
+│   └── rod_original.blend1
+├── file_structure.txt
+├── results
+│   └── table_1_p3d.csv
+└── scripts
+    ├── __pycache__
+    │   ├── bezier_set.cpython-310.pyc
+    │   ├── bezier_set.cpython-38.pyc
+    │   ├── camera_settings.cpython-310.pyc
+    │   ├── camera_settings.cpython-38.pyc
+    │   ├── path_settings.cpython-310.pyc
+    │   └── path_settings.cpython-38.pyc
+    ├── bezier_interspace_transforms.py
+    ├── bezier_set.py
+    ├── cam_test.py
+    ├── camera_settings.py
+    ├── castnet_experiments.py
+    ├── cc_catheter.py
+    ├── contour_tracer.py
+    ├── convert_camera_settings.py
+    ├── data_generation.py
+    ├── diff_render
+    │   ├── BKups
+    │   │   └── diff_render_2pts_BKUP.py
+    │   ├── __pycache__
+    │   │   ├── bezier_set.cpython-310.pyc
+    │   │   ├── blender_catheter.cpython-310.pyc
+    │   │   ├── blender_catheter.cpython-38.pyc
+    │   │   ├── build_diff_model.cpython-38.pyc
+    │   │   ├── construction_bezier.cpython-310.pyc
+    │   │   ├── construction_bezier.cpython-38.pyc
+    │   │   ├── diff_render_catheter.cpython-310.pyc
+    │   │   ├── diff_render_catheter.cpython-38.pyc
+    │   │   ├── loss_define.cpython-310.pyc
+    │   │   └── loss_define.cpython-38.pyc
+    │   ├── blender_catheter.py
+    │   ├── blender_imgs
+    │   │   ├── cylinder_primitve.mtl
+    │   │   ├── cylinder_primitve.obj
+    │   │   ├── diff_render_1.mtl
+    │   │   ├── diff_render_1.npy
+    │   │   ├── diff_render_1.obj
+    │   │   ├── diff_render_1.png
+    │   │   ├── diff_render_2.npy
+    │   │   └── diff_render_2.png
+    │   ├── build_diff_model.py
+    │   ├── camera_position_optimization_with_differentiable_rendering.ipynb
+    │   ├── construction_bezier.py
+    │   ├── cylinder.mat
+    │   ├── cylinder_primitive.csv
+    │   ├── cylinder_primitive.npy
+    │   ├── diff_open_blender.py
+    │   ├── diff_optimize_2pts.py
+    │   ├── diff_optimize_2pts_ok.py
+    │   ├── diff_render_catheter.py
+    │   ├── get-pip.py
+    │   ├── install_torch3d.py
+    │   ├── loss_define.py
+    │   ├── projectCurve.ipynb
+    │   ├── test_code.m
+    │   ├── test_cyl_constr.py
+    │   ├── test_diff_render.ipynb
+    │   ├── test_generate_primitive.ipynb
+    │   ├── test_torch3d_rendering.ipynb
+    │   └── test_torch3d_rendering_CLEAN.ipynb
+    ├── experiment_execution.py
+    ├── experiment_setup.py
+    ├── hough_bezier.py
+    ├── identifier_conversions.py
+    ├── path_settings.py
+    ├── postprocessing.py
+    ├── real_robot_experiment.py
+    ├── real_robot_experiment_executor.py
+    ├── reconstruction_scripts
+    │   ├── 05_DataAssociation-Clutter.py
+    │   ├── 07_PDATutorial.py
+    │   ├── PDA_test.py
+    │   ├── reconst_sim_opt2pts.py
+    │   ├── reconst_sim_opt2pts_PDA.py
+    │   ├── reconst_sim_opt3pts.py
+    │   └── usage.md
+    ├── result_interpreter_castnet.py
+    ├── result_interpreter_general.py
+    ├── result_interpreter_waypoint.py
+    ├── simulation_experiment.py
+    ├── temp_image_modifier.py
+    ├── test_diff_render_catheter
+    │   ├── __pycache__
+    │   │   ├── test_loss_define.cpython-310.pyc
+    │   │   └── test_reconst.cpython-310.pyc
+    │   ├── test_diff_render_catheter.py
+    │   ├── test_loss_define.py
+    │   ├── test_optimize.py
+    │   └── test_reconst.py
+    ├── test_diff_render_catheter_v2
+    │   ├── __pycache__
+    │   │   ├── test_loss_define_v2.cpython-310.pyc
+    │   │   └── test_reconst_v2.cpython-310.pyc
+    │   ├── blender_imgs
+    │   │   ├── test_catheter_gt1.npy
+    │   │   └── test_catheter_gt1.png
+    │   ├── important_imgs
+    │   │   ├── render_59_tipBP-mean.jpg
+    │   │   ├── render_59_tipBP-sum.jpg
+    │   │   └── render_59_tiponly-mean.jpg
+    │   ├── math_calcuations.py
+    │   ├── test_blender_catheter.py
+    │   ├── test_diff_render_catheter_v2.py
+    │   ├── test_graph_random.py
+    │   ├── test_loss_define_v2.py
+    │   ├── test_optimize_v2.py
+    │   ├── test_plot_2_curves.py
+    │   └── test_reconst_v2.py
+    ├── transforms.py
+    ├── waypoint_guidance_experiments.py
+    └── write_video_from_img.py
+
+16 directories, 109 files
