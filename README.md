@@ -65,6 +65,126 @@ ARCLab-CCCatheter
    └──write_video_from_img.py           ## (tangent) 
 ```
 
+## Updated Full Path Tree (11/21/23)
+```bash 
+├── README.md
+├── blender_files
+│   ├── render_bezier.blend
+│   ├── render_bezier.blend1
+│   ├── render_bezier_blender.py                         ## Blender parser to generate inputted info (i.e., curve)
+│   ├── rod_original (copy).blend
+│   ├── rod_original (copy).blend1
+│   ├── rod_original.blend
+│   └── rod_original.blend1
+├── file_structure.txt
+├── results
+│   └── table_1_p3d.csv
+└── scripts
+    ├── __pycache__
+    │   ├── bezier_set.cpython-310.pyc
+    │   ├── bezier_set.cpython-38.pyc
+    │   ├── camera_settings.cpython-310.pyc
+    │   ├── camera_settings.cpython-38.pyc
+    │   ├── path_settings.cpython-310.pyc
+    │   └── path_settings.cpython-38.pyc
+    ├── bezier_interspace_transforms.py
+    ├── bezier_set.py                                    ## Takes in bezier curve info and renders it in Blender
+    ├── cam_test.py
+    ├── camera_settings.py
+    ├── castnet_experiments.py
+    ├── cc_catheter.py
+    ├── contour_tracer.py
+    ├── convert_camera_settings.py
+    ├── data_generation.py
+    ├── diff_render
+    │   ├── BKups
+    │   │   └── diff_render_2pts_BKUP.py
+    │   ├── __pycache__
+    │   │   ├── bezier_set.cpython-310.pyc
+    │   │   ├── blender_catheter.cpython-310.pyc
+    │   │   ├── blender_catheter.cpython-38.pyc
+    │   │   ├── build_diff_model.cpython-38.pyc
+    │   │   ├── construction_bezier.cpython-310.pyc
+    │   │   ├── construction_bezier.cpython-38.pyc
+    │   │   ├── diff_render_catheter.cpython-310.pyc
+    │   │   ├── diff_render_catheter.cpython-38.pyc
+    │   │   ├── loss_define.cpython-310.pyc
+    │   │   └── loss_define.cpython-38.pyc
+    │   ├── blender_catheter.py
+    │   ├── blender_imgs
+    │   │   ├── cylinder_primitve.mtl
+    │   │   ├── cylinder_primitve.obj
+    │   │   ├── diff_render_1.mtl
+    │   │   ├── diff_render_1.npy
+    │   │   ├── diff_render_1.obj
+    │   │   ├── diff_render_1.png
+    │   │   ├── diff_render_2.npy
+    │   │   └── diff_render_2.png
+    │   ├── build_diff_model.py
+    │   ├── camera_position_optimization_with_differentiable_rendering.ipynb
+    │   ├── construction_bezier.py
+    │   ├── cylinder.mat
+    │   ├── cylinder_primitive.csv
+    │   ├── cylinder_primitive.npy
+    │   ├── diff_open_blender.py
+    │   ├── diff_optimize_2pts.py
+    │   ├── diff_optimize_2pts_ok.py
+    │   ├── diff_render_catheter.py
+    │   ├── get-pip.py
+    │   ├── install_torch3d.py
+    │   ├── loss_define.py
+    │   ├── projectCurve.ipynb
+    │   ├── test_code.m
+    │   ├── test_cyl_constr.py
+    │   ├── test_diff_render.ipynb
+    │   ├── test_generate_primitive.ipynb
+    │   ├── test_torch3d_rendering.ipynb
+    │   └── test_torch3d_rendering_CLEAN.ipynb
+    ├── experiment_execution.py
+    ├── experiment_setup.py
+    ├── hough_bezier.py
+    ├── identifier_conversions.py
+    ├── path_settings.py
+    ├── postprocessing.py
+    ├── real_robot_experiment.py
+    ├── real_robot_experiment_executor.py
+    ├── reconstruction_scripts
+    │   ├── 05_DataAssociation-Clutter.py
+    │   ├── 07_PDATutorial.py
+    │   ├── PDA_test.py
+    │   ├── reconst_sim_opt2pts.py
+    │   ├── reconst_sim_opt2pts_PDA.py
+    │   ├── reconst_sim_opt3pts.py
+    │   └── usage.md
+    ├── result_interpreter_castnet.py
+    ├── result_interpreter_general.py
+    ├── result_interpreter_waypoint.py
+    ├── simulation_experiment.py
+    ├── temp_image_modifier.py
+    ├── test_diff_render_catheter               ## OG attempt at reconst                      
+    │   └── ...
+    ├── test_diff_render_catheter_v2            ## SRC Reconst code directory
+    │   ├── blender_imgs
+    │   │   ├── test_catheter_gt1.npy           ## Sample npy of blender catheter
+    │   │   └── test_catheter_gt1.png           ## Sample png of blender catheter
+    │   ├── important_imgs
+    │   │   ├── render_59_tipBP-mean.jpg
+    │   │   ├── render_59_tipBP-sum.jpg
+    │   │   └── render_59_tiponly-mean.jpg
+    │   ├── math_calcuations.py                 ## Extra file for math calculations
+    │   ├── test_blender_catheter.py            ## Render bezier catheter in blender. Calls upon `scripts/bezier_set.py`
+    │   ├── test_diff_render_catheter_v2.py     ## Unused
+    │   ├── test_graph_random.py                ## Script to test and graph inter-pipeline plots/images
+    │   ├── test_loss_define_v2.py              ## Loss functions for optimization algorithm
+    │   ├── test_optimize_v2.py                 ## Main script for catheter reconstruction optimization
+    │   ├── test_plot_2_curves.py               ## Same as `test_reconst_v2.py`, but can plot 2 curves in 3d space
+    │   └── test_reconst_v2.py                  ## Script to generate 3d bezier catheter model & get 2d projection
+    ├── transforms.py
+    ├── waypoint_guidance_experiments.py
+    └── write_video_from_img.py
+
+```
+
 ## Logical Hierarchy
 ```bash
 ## Upper Level
