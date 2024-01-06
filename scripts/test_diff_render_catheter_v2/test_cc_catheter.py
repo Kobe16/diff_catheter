@@ -7,7 +7,7 @@ import test_bezier_interspace_transforms
 # from bezier_set import BezierSet
 
 class CCCatheter(): 
-    def __init__(self, p0, r, ): 
+    def __init__(self, p0, r): 
         """
         Initialize a Catheter Model object.
 
@@ -22,6 +22,8 @@ class CCCatheter():
             mode (int or None): Indicates the number of Degrees of Freedom (DoF).
             weight_matrix (numpy.ndarray): Matrix for weight calculations.
             params (numpy.ndarray): Array to store catheter parameters over iterations.
+            bezier_config ((1,6) numpy array): current bezier configuration (2nd and 3rd 
+                                               control points respectively) of catheter
         """
         
         self.p0 = p0
@@ -30,6 +32,31 @@ class CCCatheter():
         self.mode = None
         self.weight_matrix = np.zeros((3, 3))
         self.params = np.zeros((self.n_iter + 2, 5))
+        self.bezier_config = np.zeros(2, 3)
+
+        # TODO: find good way to initialize a default bezier. UPDATE: see quick solution 
+        # at set_bezier_default_config()
+        self.bezier_default = np.zeros(2, 3)
+
+
+
+    def set_bezier_default_config(self): 
+        """
+        Set parameters for the default bezier configuration for the 2nd and 3rd control points. 
+        Set the 3rd control point as distance l away from p0, in the x-direction. 
+        Set the 2nd control point as distance l/2 away from p0, in the x-direction. 
+        """
+        self.bezier_default = np.zeros(2, 3)
+        self.bezier_default[0, 0] = self.l / 2
+        self.bezier_default[0, 1] = self.l
+
+    def set_ux_uy_default_config(self, ux_default, uy_default): 
+        """
+        Set parameters for the default actuation state configuration
+        """
+        self.ux_default = ux_default
+        self.uy_default = uy_default
+        
 
     def set_1dof_params(self, phi, u):
         """
@@ -101,7 +128,16 @@ class CCCatheter():
         self.weight_matrix[1, 1] = w2
         self.weight_matrix[2, 2] = w3
 
+    def calculate_p_diffs(self): 
+        """
+        Calculate difference between current bezier configuration and default bezier configuration. 
+        Basically, find difference for the 2nd and 3rd Bezier control ponints. 
+        """
 
+        self.p_diffs = np.zeros((2, 3))
+        self.p_diffs = self.bezier_default - self.bezier_config
+
+    
     def get_bezier_reconstruction(self): 
         """
         Get the bezier params of a catheter from a picture of the catheter. 
@@ -122,6 +158,9 @@ class CCCatheter():
             ux (numpy array): Actuation state for inputted Bezier configuration.
         """
 
+        self.calculate_p_diffs()
+        print('|p_diffs| = ', np.linalg.norm(self.p_diffs))
+
         # TODO: replace this inverse kinematics math with the damped least squares method
         # TODO: change name of this method. It shouldn't be called update.... because its
         #       its goal is not to update parameters to simulate movement. Its goal is to 
@@ -132,14 +171,39 @@ class CCCatheter():
         J = test_bezier_interspace_transforms.calculate_jacobian_2dof_ux_uy(self.p0, self.ux, self.uy, self.l, self.r)
 
         # Get Jacobian inverse J_inv
-        J_inv = np.linalg.inv(J)
+        # J_inv = np.linalg.inv(J)
 
-        u_delta = damping_const * J_inv * (bezier_t0 - bezier_reconst)
+        # u_delta = damping_const * J_inv * (bezier_t0 - bezier_reconst)
 
-        ux = ux_t0 - u_delta
+        # ux = ux_t0 - u_delta
 
-        return ux
+        J_T = np.transpose(J)
+
+        weight_matrix = self.weight_matrix[:2, :2]
+        print('weight_matrix = ', weight_matrix)
+
+        d = np.linalg.pinv(J_T @ J + weight_matrix) @ J_T @ self.p_diffs
+        d_ux = d[0, 0]
+        d_uy = d[1, 0]
+
+        ux_old = self.ux
+        uy_old = self.uy
+
+        # self.ux += d_ux
+        # self.uy += d_uy
+
+        self.ux = self.ux_default - d_ux
+        self.uy = self.uy_default - d_uy
+
+        return self.ux, self.uy
     
-    def 
+    def get_2dof_ux_uy_interspace_bezier(self): 
+        """
+        Forward kinematics function mapping actuation state to Bezier configuration
+        """
+
+        self.ux = ux
+    
+     
 
 
