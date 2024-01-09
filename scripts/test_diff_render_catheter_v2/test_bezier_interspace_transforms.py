@@ -1,5 +1,5 @@
 import numpy as np
-import transforms
+import test_transforms
 
 def d_bezier_d_p_start(s_bezier):
     """
@@ -61,12 +61,12 @@ def calculate_jacobian_2dof_ux_uy(p_start, ux, uy, l, r):
     bezier_mid_over_cc_end = d_bezier_d_p_end(0.5)
     bezier_end_over_cc_end = d_bezier_d_p_end(1.0)
 
-    cc_start_over_ux = transforms.d_ux_cc_transform_3dof(p_start, ux, uy, l, r, s=0.0)
-    cc_start_over_uy = transforms.d_uy_cc_transform_3dof(p_start, ux, uy, l, r, s=0.0)
-    cc_mid_over_ux = transforms.d_ux_cc_transform_3dof(p_start, ux, uy, l, r, s=0.5)
-    cc_mid_over_uy = transforms.d_uy_cc_transform_3dof(p_start, ux, uy, l, r, s=0.5)
-    cc_end_over_ux = transforms.d_ux_cc_transform_3dof(p_start, ux, uy, l, r, s=1.0)
-    cc_end_over_uy = transforms.d_uy_cc_transform_3dof(p_start, ux, uy, l, r, s=1.0)
+    cc_start_over_ux = test_transforms.d_ux_cc_transform_3dof(p_start, ux, uy, l, r, s=0.0)
+    cc_start_over_uy = test_transforms.d_uy_cc_transform_3dof(p_start, ux, uy, l, r, s=0.0)
+    cc_mid_over_ux = test_transforms.d_ux_cc_transform_3dof(p_start, ux, uy, l, r, s=0.5)
+    cc_mid_over_uy = test_transforms.d_uy_cc_transform_3dof(p_start, ux, uy, l, r, s=0.5)
+    cc_end_over_ux = test_transforms.d_ux_cc_transform_3dof(p_start, ux, uy, l, r, s=1.0)
+    cc_end_over_uy = test_transforms.d_uy_cc_transform_3dof(p_start, ux, uy, l, r, s=1.0)
 
 
     G_p_mid_ux = bezier_mid_over_cc_start * cc_start_over_ux + bezier_mid_over_cc_mid * cc_mid_over_ux + bezier_mid_over_cc_end * cc_end_over_ux
