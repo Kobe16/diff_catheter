@@ -4,6 +4,7 @@ import cv2
 
 import test_transforms
 import test_bezier_interspace_transforms
+from test_optimize_executor import ReconstructionOptimizeScriptExecutor
 
 import sys
 import os
@@ -17,7 +18,7 @@ sys.path.append(parent_directory)
 from bezier_set import BezierSet
 
 class CCCatheter(): 
-    def __init__(self, p_0, l, r, n_mid_points, n_iter, verbose=1):
+    def __init__(self, p_0, l, r, n_mid_points, n_iter, n_reconst_iters, verbose=1):
         """
         Args:
             p_0 ((3,) numpy array): start point of catheter
@@ -25,6 +26,7 @@ class CCCatheter():
             r (float): cross section radius of catheter
             n_mid_points (int): number of middle control points
             n_iter (int): number of total iteration of optimization
+            n_reconst_iters: number of total iterations of reconstruction optimization
             verbose (0, 1, or 2): amount of verbosity
 
         Attributes:
@@ -41,6 +43,7 @@ class CCCatheter():
         self.r = r
 
         self.n_iter = n_iter
+        self.n_reconst_iters = n_reconst_iters
         # self.verbose = verbose
 
         if n_mid_points == 0:
@@ -426,14 +429,23 @@ class CCCatheter():
         self.p_diffs = np.zeros((6, 1))
         self.p_diffs = self.bezier_default - self.bezier_config
 
-        
-
     
-    def get_bezier_reconstruction(self): 
+    def get_bezier_reconstruction(self, img_get_path, img_save_path): 
         """
         Get the bezier params of a catheter from a picture of the catheter. 
         Call's Kobe's summer 2023 catheter reconstruction script
         """
+        para_init = self.bezier_config.reshape((6,))
+
+        optimize_executor = ReconstructionOptimizeScriptExecutor(
+            self.p_0,
+            para_init,
+            self.n_reconst_iters,
+            img_get_path,
+            img_save_path
+        )
+
+        optimize_executor.execute()
 
     def get_2dof_bezier_interspace_ux_uy(self, bezier_reconst, bezier_t0, ux_t0, damping_const): 
         """
@@ -491,21 +503,55 @@ class CCCatheter():
     def get_2dof_ux_uy_interspace_bezier(self): 
         """
         Forward kinematics function mapping actuation state to Bezier configuration
-
-        Args: 
-            
         """
 
         bezier_config = np.zeros((6, 1))
 
-        p_2 = test_bezier_interspace_transforms.cc_transform_3dof(self.p_0, self.ux, self.uy, self.l, self.r, 1)
-        curve_midpoint = test_bezier_interspace_transforms.cc_transform_3dof(self.p_0, self.ux, self.uy, self.l, self.r, 0.5)
+        p_2 = test_bezier_interspace_transforms.cc_transform_3dof(
+            self.p_0,
+            self.ux,
+            self.uy,
+            self.l,
+            self.r,
+            1
+        )
+        curve_midpoint = test_bezier_interspace_transforms.cc_transform_3dof(
+            self.p_0,
+            self.ux,
+            self.uy,
+            self.l,
+            self.r,
+            0.5
+        )
+
         p_1 = 2 * curve_midpoint - self.p_0 / 2  - p_2 / 2
         
         bezier_config[0:3, 0] = p_1
         bezier_config[3:6, 0]  = p_2
 
         return bezier_config
+    
+    def get_2dof_ux_uy_num_steps_ago(self, ux_reconst, uy_reconst, current_iter, num_steps): 
+        """
+        Use history of controls to get the reconstructed actuation state from num steps ago
+
+        Args: 
+            ux_reconst (float): actuation state ux that created from bezier reconstruction
+            uy_reconst (float): actuation state uy that created from bezier reconstruction
+            current_iter (int): current frame that we are reconstructed and performing loss function on
+            num_steps (int): number of steps to travel backwards in frames in order to get 
+                             sum of actuation changes since that time. 
+
+        """
+
+        ux_control_changes_sum = sum(self.ux[current_iter - num_steps : current_iter])
+        uy_control_changes_sum = sum(self.ux[current_iter - num_steps : current_iter])
+
+        ux_num_steps_ago = ux_reconst - ux_control_changes_sum
+        uy_num_steps_ago = uy_reconst - uy_control_changes_sum
+
+        return ux_num_steps_ago, uy_num_steps_ago
+
 
      
 

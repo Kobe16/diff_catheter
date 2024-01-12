@@ -46,7 +46,7 @@ class CatheterOptimizeModel(nn.Module):
     '''
     This class is used to optimize the catheter parameters.
     '''
-    def __init__(self, p_start, image_ref, gpu_or_cpu): 
+    def __init__(self, p_start, para_init, image_ref, gpu_or_cpu): 
         '''
         This function initializes the catheter optimization model.
 
@@ -96,10 +96,13 @@ class CatheterOptimizeModel(nn.Module):
 
         self.p_start = p_start.to(gpu_or_cpu).detach()
 
-        self.para_init = nn.Parameter(torch.from_numpy(
-            np.array([0.0365, 0.0036,  0.1202,  0.0056, -0.0166, 0.1645],
-                     dtype=np.float32)).to(gpu_or_cpu),
+        # self.para_init = nn.Parameter(torch.from_numpy(
+        #     np.array([0.0365, 0.0036,  0.1202,  0.0056, -0.0166, 0.1645],
+        #              dtype=np.float32)).to(gpu_or_cpu),
+        #                               requires_grad=True)
+        self.para_init = nn.Parameter(torch.from_numpy(para_init).to(gpu_or_cpu),
                                       requires_grad=True)
+
         
 
         image_ref = torch.from_numpy(image_ref.astype(np.float32))
@@ -241,9 +244,13 @@ if __name__ == '__main__':
     # Z axis + 0.1
     # para_init = torch.tensor([0.02, 0.002, 0.1, 0.01958988, 0.00195899, 0.09690406, -0.03142905, -0.0031429, 0.18200866], dtype=torch.float)
     # p_start = torch.tensor([0.02, 0.002, 0.1000])
+        
+    
 
-    # p_start used for SRC presentation
+    # p_start and para_init used for SRC presentation
     p_start = torch.tensor([0.02, 0.008, 0.054])
+    para_init = np.array([0.0365, 0.0036,  0.1202,  0.0056, -0.0166, 0.1645],
+                     dtype=np.float32)
 
     case_naming = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/scripts/test_diff_render_catheter_v2/blender_imgs/test_catheter_gt1'
     img_save_path = case_naming + '.png'
@@ -276,7 +283,7 @@ if __name__ == '__main__':
     ###========================================================
     ### 3) SET UP AND RUN OPTIMIZATION MODEL
     ###========================================================
-    catheter_optimize_model = CatheterOptimizeModel(p_start, img_ref_binary, gpu_or_cpu).to(gpu_or_cpu)
+    catheter_optimize_model = CatheterOptimizeModel(p_start, para_init, img_ref_binary, gpu_or_cpu).to(gpu_or_cpu)
 
     print("Model Parameters:")
     for name, param in catheter_optimize_model.named_parameters():

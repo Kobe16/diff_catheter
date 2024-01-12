@@ -181,8 +181,8 @@ class RealRobotExperiment:
                 The 5 columns records the ux, uy, l, theta, phi parameters.
                 If some parameters are not applicable for current method, they are left as 0
         """
-        catheter = CCCatheter(self.p_0, self.l, self.r, self.n_mid_points, self.n_iter, verbose=0)
-        catheter.set_weight_matrix(self.damping_weights[0], self.damping_weights[1], self.damping_weights[2])
+        catheter_gt = CCCatheter(self.p_0, self.l, self.r, self.n_mid_points, self.n_iter, verbose=0)
+        catheter_gt.set_weight_matrix(self.damping_weights[0], self.damping_weights[1], self.damping_weights[2])
 
         # if self.use_2d_pos_target:
         #     assert self.ux
@@ -205,7 +205,7 @@ class RealRobotExperiment:
             assert self.phi
             assert self.u_target
 
-            catheter.set_1dof_params(self.phi, self.u)
+            catheter_gt.set_1dof_params(self.phi, self.u)
             # catheter.set_1dof_targets(self.u_target)
 
         elif self.dof == 2:
@@ -214,7 +214,7 @@ class RealRobotExperiment:
             assert self.ux_target
             assert self.uy_target
 
-            catheter.set_2dof_params(self.ux, self.uy)
+            catheter_gt.set_2dof_params(self.ux, self.uy)
             # catheter.set_2dof_targets(self.ux_target, self.uy_target)
 
         elif self.dof == 3:
@@ -224,16 +224,16 @@ class RealRobotExperiment:
             assert self.uy_target
             assert self.l_target
 
-            catheter.set_3dof_params(self.ux, self.uy, self.l)
+            catheter_gt.set_3dof_params(self.ux, self.uy, self.l)
             # catheter.set_3dof_targets(self.ux_target, self.uy_target, self.l_target)
 
         else:
             print('[ERROR] DOF invalid')
 
-        catheter.set_camera_params(camera_settings.a, camera_settings.b, camera_settings.center_x, camera_settings.center_y, camera_settings.image_size_x, camera_settings.image_size_y, camera_settings.extrinsics)
-        catheter.calculate_cc_points(init=True)
+        catheter_gt.set_camera_params(camera_settings.a, camera_settings.b, camera_settings.center_x, camera_settings.center_y, camera_settings.image_size_x, camera_settings.image_size_y, camera_settings.extrinsics)
+        catheter_gt.calculate_cc_points(init=True)
         # catheter.convert_cc_points_to_2d(init=True)
-        catheter.calculate_beziers_control_points()
+        catheter_gt.calculate_beziers_control_points()
 
         # if not self.use_2d_pos_target:
         #     catheter.calculate_cc_points(target=True)
@@ -246,7 +246,7 @@ class RealRobotExperiment:
         target_specs_path = None
 
         if self.render_mode == 2: 
-            catheter.render_beziers(cc_specs_path, image_save_path, target_specs_path, self.viewpoint_mode, transparent_mode=0)
+            catheter_gt.render_beziers(cc_specs_path, image_save_path, target_specs_path, self.viewpoint_mode, transparent_mode=0)
 
 
 
@@ -258,35 +258,35 @@ class RealRobotExperiment:
                 assert self.u
                 assert self.phi
 
-                params = catheter.get_1dof_params()
+                params = catheter_gt.get_1dof_params()
 
                 #FIXME: when implementing 1DoF in future, 
-                catheter.set_1dof_params(params[0] + self.phi_controls[i], params[1] + self.u_controls[i])
+                catheter_gt.set_1dof_params(params[0] + self.phi_controls[i], params[1] + self.u_controls[i])
 
             elif self.dof == 2:
                 assert self.ux
                 assert self.uy
 
-                params = catheter.get_2dof_params()
+                params = catheter_gt.get_2dof_params()
 
-                catheter.set_2dof_params(params[0, 0] + self.ux_controls[i], params[0, 1] + self.uy_controls[i])
+                catheter_gt.set_2dof_params(params[0, 0] + self.ux_controls[i], params[0, 1] + self.uy_controls[i])
 
             elif self.dof == 3:
                 assert self.ux
                 assert self.uy
                 assert self.l
 
-                params = catheter.get_3dof_params()
+                params = catheter_gt.get_3dof_params()
 
-                catheter.set_3dof_params(params[0, 0] + self.ux_controls[i], params[0, 1] + self.uy_controls[i], 
+                catheter_gt.set_3dof_params(params[0, 0] + self.ux_controls[i], params[0, 1] + self.uy_controls[i], 
                                         params[0, 2] + self.l_controls[i])
 
 
             # Find cc_points of curve using current ux, uy actuation (homogenous transformation matrix)
-            catheter.calculate_cc_points(i)
+            catheter_gt.calculate_cc_points(i)
 
             # Convert cc_points to bezier curves
-            catheter.calculate_beziers_control_points()
+            catheter_gt.calculate_beziers_control_points()
 
             # Render bezier curves through blender. 
             cc_specs_path = os.path.join(self.cc_specs_save_dir, str(i + 1).zfill(3) + '.npy')
@@ -297,12 +297,14 @@ class RealRobotExperiment:
 
             if self.render_mode > 0:
                 if i == (self.n_iter - 1):
-                    catheter.render_beziers(cc_specs_path, rendered_image_save_path, target_specs_path, self.viewpoint_mode, transparent_mode=1)
+                    catheter_gt.render_beziers(cc_specs_path, rendered_image_save_path, target_specs_path, self.viewpoint_mode, transparent_mode=1)
                 elif self.render_mode == 2:
-                    catheter.render_beziers(cc_specs_path, rendered_image_save_path, target_specs_path, self.viewpoint_mode, transparent_mode=0)
+                    catheter_gt.render_beziers(cc_specs_path, rendered_image_save_path, target_specs_path, self.viewpoint_mode, transparent_mode=0)
 
         # Run main reconstruction pipeline
         for i in range(self.n_control_iters): 
+
+
             
 
         # for i in range(self.n_iter):
