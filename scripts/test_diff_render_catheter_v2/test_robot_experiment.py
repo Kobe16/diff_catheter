@@ -303,7 +303,7 @@ class RealRobotExperiment:
 
         # Run main reconstruction pipeline
         for i in range(self.n_control_iters): 
-
+            print('hi')
 
             
 
