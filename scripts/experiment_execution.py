@@ -3,7 +3,8 @@ import numpy as np
 
 import camera_settings
 import path_settings
-from simulation_experiment import SimulationExperiment
+# from simulation_experiment import SimulationExperiment
+from simulation_experiment_new import SimulationExperiment
 from data_generation import DataGeneration
 from experiment_setup import experiments
 
@@ -13,7 +14,7 @@ from experiment_setup import experiments
 p_0 = np.array([2e-2, 2e-3, 0])
 r = 0.01
 n_iter = 20
-n_data = 100
+n_data = 1 # 100
 noise_percentage = 0.25
 ux_init = 0.00001
 uy_init = 0.00001
@@ -30,6 +31,8 @@ data_gen.set_target_ranges(-0.005, 0.005, -0.005, 0.005, 0.1, 0.5)
 data_gen.set_camera_params(camera_settings.a, camera_settings.b, camera_settings.center_x, camera_settings.center_y, camera_settings.image_size_x, camera_settings.image_size_y, camera_settings.extrinsics)
 data_gen.generate_data()
 target_parameters = np.load(data_save_path)
+
+data_gen.visualize_targets(path_settings.target_parameters_dir, 1, n_iter)
 
 
 ### Test setup for all methods using general dataset

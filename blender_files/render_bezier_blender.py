@@ -1,5 +1,5 @@
 import os
-import bpy
+import bpy # Blender Python API
 import argparse
 import numpy as np
 
@@ -7,7 +7,7 @@ from math import *
 from mathutils import Euler, Matrix, Quaternion, Vector
 from bpy import context, data, ops
  
-
+# Called by scripts/bazier_set.py
 
 parser = argparse.ArgumentParser()
 
@@ -30,10 +30,28 @@ n_beziers = bezier_specs.shape[0]
 ops.object.select_all(action='SELECT')
 ops.object.delete(use_global=False)
 
+# Set background color to pure black
+context.scene.world.use_nodes = True
+bg = context.scene.world.node_tree.nodes['Background']
+bg.inputs['Color'].default_value = (0, 0, 0, 1)
+
 
 # create Material
 mat_blue = data.materials.new(name="Material_blue")
-mat_blue.diffuse_color = (0.0553055, 0.0761522, 0.263268, 1)
+# mat_blue.diffuse_color = (0.0553055, 0.0761522, 0.263268, 1)
+
+# Adjusting the color of the blue material to a brighter shade
+mat_blue.diffuse_color = (0.1, 0.2, 0.8, 1)  # Brighter blue
+
+# Adding emission to make the catheter glow slightly
+mat_blue.use_nodes = True
+nodes = mat_blue.node_tree.nodes
+emission = nodes.new(type='ShaderNodeEmission')
+emission.inputs['Color'].default_value = (0.1, 0.2, 0.8, 1)
+emission.inputs['Strength'].default_value = 2.0
+output = nodes.get('Material Output')
+mat_blue.node_tree.links.new(emission.outputs['Emission'], output.inputs['Surface'])
+
 
 mat_green = data.materials.new(name="Material_green")
 mat_green.diffuse_color = (0.036845, 0.263268, 0.120192, 1)
@@ -83,7 +101,7 @@ if len(args.target_specs_path):
     n_targets = target_specs.shape[0]
 
     for i in range(n_targets):
-        ops.mesh.primitive_uv_sphere_add(radius=0.002, location=target_specs[i, :])   
+        ops.mesh.primitive_uv_sphere_add(radius=0.005, location=target_specs[i, :])   
         ops.object.shade_smooth()
 
         if i == 0:

@@ -12,7 +12,8 @@ import matplotlib as mpl
 # mpl.rcParams['figure.figsize'] = [1280, 800]
 # mpl.rcParams['figure.dpi'] = 300
 
-sys.path.insert(1, '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/scripts')
+# sys.path.insert(1, '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/scripts')
+sys.path.insert(1, 'E:/OneDrive - UC San Diego/UCSD/Lab/Catheter/diff_catheter/scripts')
 import camera_settings
 
 import matplotlib.cm as cm
@@ -120,15 +121,15 @@ class ConstructionBezier(nn.Module):
         self.pos_bezier_3D_init = self.getAnyBezierCurve(para_init, self.P0_gt)
 '''
     
-    def __init__(self): 
+    def __init__(self, radius=0.0015): 
         '''
         Constructor to initialize the class with set curve & camera parameters
         Also, set manual seed for random number generation --> for reproducibility. 
         '''
         super().__init__()
 
-        self.fig = plt.figure()
-        self.ax = self.fig.add_subplot(111, projection='3d')
+        # self.fig = plt.figure()
+        # self.ax = self.fig.add_subplot(111, projection='3d')
         self.epsilon = 1e-8
 
         # Number of samples to take along Bezier Curve
@@ -145,7 +146,7 @@ class ConstructionBezier(nn.Module):
         self.cylinder_mesh_points = torch.zeros(self.num_samples, self.samples_per_circle, 3)
         self.cylinder_surface_points = torch.zeros(self.num_samples, self.bezier_surface_resolution, 3)
 
-        self.radius = 0.0015
+        self.radius = radius
         # self.radius = 2
         # self.radius = 0.003
 
@@ -791,7 +792,9 @@ class ConstructionBezier(nn.Module):
 
         # Convert 3D world position to camera frame
         # pos_bezier_H = torch.cat((self.cylinder_mesh_points, torch.ones(self.num_samples, self.samples_per_circle, 1)), dim=2)
-        pos_bezier_H = torch.cat((self.cylinder_mesh_and_surface_points, torch.ones(self.num_samples, self.samples_per_circle + self.bezier_surface_resolution, 1)), dim=2)
+        # pos_bezier_H = torch.cat((self.cylinder_mesh_and_surface_points, torch.ones(self.num_samples, self.samples_per_circle + self.bezier_surface_resolution, 1)), dim=2)
+        pos_bezier_H = torch.cat((self.cylinder_surface_points, torch.ones(self.num_samples, self.bezier_surface_resolution, 1)), dim=2)
+        
         # print("\n pos_bezier_H shape: " + str(pos_bezier_H.size()))
         # print("\n pos_bezier_H: \n" + str(pos_bezier_H))
 
@@ -910,15 +913,19 @@ class ConstructionBezier(nn.Module):
             tip_point = (int(self.img_raw_skeleton[0, 0]), int(self.img_raw_skeleton[0, 1]))
             boundary_point = (int(self.img_raw_skeleton[-1, 0]), int(self.img_raw_skeleton[-1, 1]))
 
-            cv2.circle(segmented_circle_draw_img_rgb, tip_point, 2, (0, 0, 255), -1)
-            cv2.circle(segmented_circle_draw_img_rgb, boundary_point, 2, (0, 0, 255), -1)
+            # cv2.circle(segmented_circle_draw_img_rgb, tip_point, 2, (0, 0, 255), -1)
+            cv2.circle(segmented_circle_draw_img_rgb, tip_point, 5, (0, 255, 0), -1) # tip in green circle
+            cv2.circle(segmented_circle_draw_img_rgb, boundary_point, 5, (0, 165, 255), -1) # reference base in orange
 
 
         # Draw projected tip and boundary points onto the reference image.
-        pTip = (int(self.bezier_proj_centerline_img[0, 0]), int(self.bezier_proj_centerline_img[0, 1]))
-        pBoundary = (int(self.bezier_proj_centerline_img[-1, 0]), int(self.bezier_proj_centerline_img[-1, 1]))
-        cv2.circle(segmented_circle_draw_img_rgb, pTip, 2, (255, 0, 0), -1)
-        cv2.circle(segmented_circle_draw_img_rgb, pBoundary, 2, (255, 0, 0), -1)
+        pBoundary = (int(self.bezier_proj_centerline_img[0, 0]), int(self.bezier_proj_centerline_img[0, 1]))
+        pTip = (int(self.bezier_proj_centerline_img[-1, 0]), int(self.bezier_proj_centerline_img[-1, 1]))
+        # cv2.circle(segmented_circle_draw_img_rgb, pTip, 2, (255, 0, 0), -1)
+        # cv2.circle(segmented_circle_draw_img_rgb, pBoundary, 2, (255, 0, 0), -1)
+        
+        cv2.circle(segmented_circle_draw_img_rgb, pTip, 5, (0, 255, 255), -1) # Projected tip in yellow
+        cv2.circle(segmented_circle_draw_img_rgb, pBoundary, 5, (203, 192, 255), -1) # Projected base in pink
 
 
         # ---------------
@@ -937,6 +944,8 @@ class ConstructionBezier(nn.Module):
         # plt.show()
 
         if save_img_path is not None:
+            if not os.path.exists(os.path.dirname(save_img_path)):
+                os.makedirs(os.path.dirname(save_img_path))
             plt.savefig(save_img_path)
             plt.close(fig)
 
@@ -1220,11 +1229,26 @@ if __name__ == '__main__':
     ###========================================================
     ### 2) VARIABLES FOR BEZIER CURVE CONSTRUCTION
     ###========================================================
-    quadratic_test_para_init1 = torch.tensor([0.02, 0.002, 0.0, 0.01958988, 0.00195899, 0.09690406, -0.03142905, -0.0031429, 0.18200866])
-    quadratic_test_para_start1 = torch.tensor([0.02, 0.002, 0.0])
+    # quadratic_test_para_init1 = torch.tensor([0.02, 0.002, 0.0, 0.01958988, 0.00195899, 0.09690406, -0.03142905, -0.0031429, 0.18200866])
+    # quadratic_test_para_start1 = torch.tensor([0.02, 0.002, 0.0])
 
-    case_naming = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/scripts/diff_render/blender_imgs/diff_render_1'
+    # case_naming = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/scripts/diff_render/blender_imgs/diff_render_1'
+    # img_save_path = case_naming + '.png'
+    
+    case_naming = 'E:/OneDrive - UC San Diego/UCSD/Lab/Catheter/diff_catheter/data/rendered_images/dof2_64/dof2_c48_0.001_-0.005_0.2_0.01'
     img_save_path = case_naming + '.png'
+    quadratic_test_para_start1 = torch.tensor([0.02, 0.002, 0.0001])
+    para_init = np.array([0.02, 0.0016,  0.1,  0.03, -0.047, 0.19],
+                     dtype=np.float32)
+    quadratic_test_para_init1 = torch.tensor(para_init)
+    
+    # case_naming = 'E:/OneDrive - UC San Diego/UCSD/Lab/Catheter/diff_catheter/scripts/test_diff_render_catheter_v2/blender_imgs/test_catheter_gt1'
+    # img_save_path = case_naming + '.png'
+    # quadratic_test_para_start1 = torch.tensor([0.02, 0.008, 0.054])
+    # para_init = np.array([0.0365, 0.0036,  0.1202,  0.0056, -0.0166, 0.1645],
+    #                  dtype=np.float32)
+    # quadratic_test_para_init1 = torch.tensor(para_init)
+    
 
 
     ###========================================================
@@ -1240,12 +1264,21 @@ if __name__ == '__main__':
     # Generate the Bezier curve cylinder mesh points
     build_bezier.getBezierCurveCylinder(quadratic_test_para_start1, quadratic_test_para_init1)
 
-    # Plot 3D Bezier Cylinder mesh points
-    build_bezier.plot3dBezierCylinder()
+    # # Plot 3D Bezier Cylinder mesh points
+    # build_bezier.plot3dBezierCylinder()
 
     # Get 2D projected Bezier Cylinder mesh points
     build_bezier.getCylinderMeshProjImg()
+    
+    build_bezier.getBezierProjImg()
+    
+    img_ref_rgb = cv2.imread(img_save_path)
+    img_ref_gray = cv2.cvtColor(img_ref_rgb, cv2.COLOR_BGR2GRAY)
+    (thresh, img_ref_thresh) = cv2.threshold(img_ref_gray, 80, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+    img_ref_binary = np.where(img_ref_thresh == 255, 1, img_ref_thresh)
+    image_ref = torch.from_numpy(img_ref_binary.astype(np.float32))
 
+    save_img_path = 'E:/OneDrive - UC San Diego/UCSD/Lab/Catheter/diff_catheter/scripts/test_diff_render_catheter_v2/rendered_imgs/test2.png'
     # Plot 2D projected Bezier Cylinder mesh points
-    build_bezier.draw2DCylinderImage()
+    build_bezier.draw2DCylinderImage(image_ref, save_img_path)
     

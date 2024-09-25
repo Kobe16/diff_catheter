@@ -6,8 +6,6 @@ import path_settings
 from cc_catheter import CCCatheter
 from reconstruction_scripts.reconst_sim_opt2pts import reconstructCurve
 
-
-
 class SimulationExperiment:
 
     def __init__(self, dof, loss_2d, tip_loss, use_reconstruction, interspace, viewpoint_mode, damping_weights, noise_percentage, n_iter, render_mode):
@@ -17,8 +15,8 @@ class SimulationExperiment:
             loss_2d (bool): whether to use 2D loss
             tip_loss (bool): whether to use tip loss
             use_recontruction (bool): whether to use Fei's reconstruction instead of full simulation
-            interspace (0, 1, or 2): interspace of control, 0 for unispace, 1 for Bezier interspace
-                with (theta, phi) parameterization, 2 for Bezier interspace with (ux, uy) parameterization
+            interspace (0, 1, or 2): interspace of control, 0 for unispace, 1 for Bezier interspace with (ux, uy) parameterization, 
+                2 for Bezier interspace with (theta, phi) parameterization
             viewpoint_mode (1 or 2): camera view of rendered image, 1 for endoscopic view, 2 for side view
             damping_weights (list of 3 floats): n-th term corresponds to the damping weight of the n-th DoF control feedback
             noise_percentage: gaussian noise will be applied to the feedback. 
@@ -212,11 +210,11 @@ class SimulationExperiment:
                 print('[ERROR] DOF invalid')
 
         catheter.set_camera_params(camera_settings.a, camera_settings.b, camera_settings.center_x, camera_settings.center_y, camera_settings.image_size_x, camera_settings.image_size_y, camera_settings.extrinsics)
-        catheter.calculate_cc_points(init=True)
+        catheter.calculate_cc_points(init=True, noise_percentage=0.05)
         catheter.convert_cc_points_to_2d(init=True)
-        catheter.calculate_beziers_control_points()
+        catheter.calculate_beziers_control_points(noise_level=0.007)
 
-        if not self.use_2d_pos_target:
+        if not self.use_2d_pos_target: # if use 3D target
             catheter.calculate_cc_points(target=True)
             catheter.convert_cc_points_to_2d(target=True)
         
@@ -233,6 +231,7 @@ class SimulationExperiment:
             target_specs_path = os.path.join(self.cc_specs_save_dir, 'target.npy')
             catheter.write_target_specs(target_specs_path, show_mid_points=True)
 
+        # if use reconstruction, self.render_mode == 2
         if self.render_mode == 2: 
             catheter.render_beziers(cc_specs_path, image_save_path, target_specs_path, self.viewpoint_mode, transparent_mode=0)
 
@@ -260,7 +259,7 @@ class SimulationExperiment:
 
             catheter.calculate_cc_points(i)
             catheter.convert_cc_points_to_2d(i)
-            catheter.calculate_beziers_control_points()                
+            catheter.calculate_beziers_control_points(noise_level=0.007)                
 
             cc_specs_path = os.path.join(self.cc_specs_save_dir, str(i + 1).zfill(3) + '.npy')
             image_save_path = os.path.join(self.images_save_dir, str(i + 1).zfill(3) + '.png')
@@ -285,7 +284,6 @@ class SimulationExperiment:
                 ## Detect actual bezier
                 bezier_reconstruction = reconstructCurve(image_save_path, catheter.l, p_0, bezier_specs_torch, bezier_specs_init_torch, loss_weight, total_itr=50)
                 bezier_reconstruction.getOptimize(None, p_0)
-                #bezier_reconstruction.plotProjCenterline()
 
                 ## Convert actual bezier to cc
                 optimized_bezier_specs = bezier_reconstruction.para.detach().numpy().reshape((2, 3))
@@ -296,6 +294,7 @@ class SimulationExperiment:
                 catheter.convert_cc_points_to_2d(i)
 
             print('-------------------------- End of Iteration ' + str(i) + ' --------------------------')
+            print()
 
         catheter.write_reports(self.params_report_path, self.p3d_report_path, self.p2d_report_path)
 

@@ -3,6 +3,10 @@ File to build a 3d catheter and project onto a 2d image plane for
 further loss computation. 
 """
 import sys
+sys.path.append('..')
+sys.path.insert(1, 'E:/OneDrive - UC San Diego/UCSD/Lab/Catheter/diff_catheter/scripts')
+
+import sys
 import os
 import math
 import numpy as np
@@ -11,6 +15,7 @@ import torch.nn as nn
 import cv2
 import matplotlib.pyplot as plt
 import skimage.morphology as skimage_morphology
+from random import randrange
 
 current_directory = os.path.dirname(os.path.realpath(__file__))
 parent_directory = os.path.dirname(current_directory)
@@ -22,7 +27,7 @@ import camera_settings
 
 class ConstructionBezier(nn.Module):
 
-    def __init__(self, radius): 
+    def __init__(self, radius=0.0015): 
         '''
         Constructor to initialize the class with set curve & camera parameters
         Also, set manual seed for random number generation --> for reproducibility.
@@ -44,9 +49,9 @@ class ConstructionBezier(nn.Module):
         '''
         super().__init__()
 
-        self.fig = plt.figure()
-        self.ax = self.fig.add_subplot(111, projection='3d')
-        self.epsilon = 1e-8
+        # self.fig = plt.figure()
+        # self.ax = self.fig.add_subplot(111, projection='3d')
+        self.epsilon = 1e-7
 
         self.num_samples = 30
         self.samples_per_circle = 20
@@ -202,6 +207,9 @@ class ConstructionBezier(nn.Module):
             bezier_snd_der (torch.tensor): bezier curve second derivative
 
         '''
+        assert not torch.any(torch.isnan(bezier_der))
+        assert not torch.any(torch.isnan(bezier_snd_der))
+        
         bezier_der_n = torch.linalg.norm(bezier_der, ord=2, dim=1)
         # self.bezier_tangent = bezier_der / torch.unsqueeze(bezier_der_n, dim=1)
 
@@ -407,6 +415,35 @@ class ConstructionBezier(nn.Module):
         self.fig.suptitle('Bézier Curve - Cross Sectional Circles')
 
         plt.show()
+        
+    def find_endpoints(self, skeleton, skeleton_coords):
+        """
+        Find endpoints of the skeleton and their indices
+        """
+        endpoints = []
+        endpoint_indices = []
+        for idx, (x, y) in enumerate(skeleton_coords):
+            neighborhood = skeleton[x-1:x+2, y-1:y+2]
+            if np.sum(neighborhood) == 2:  # endpoint will have only one neighbor in the skeleton
+                endpoints.append((x, y))
+                endpoint_indices.append(idx)
+
+        if len(endpoints) != 2:
+            raise ValueError("The skeleton does not have exactly two endpoints.")
+
+        # Determine tip and base based on y-coordinate
+        if endpoints[0][1] < endpoints[1][1]:
+            tip, base = endpoints[0], endpoints[1]
+            tip_idx, base_idx = endpoint_indices[0], endpoint_indices[1]
+        else:
+            tip, base = endpoints[1], endpoints[0]
+            tip_idx, base_idx = endpoint_indices[1], endpoint_indices[0]
+
+        # Swap tip with the first element and base with the last element
+        skeleton_coords[0], skeleton_coords[tip_idx] = skeleton_coords[tip_idx], skeleton_coords[0]
+        skeleton_coords[-1], skeleton_coords[base_idx] = skeleton_coords[base_idx], skeleton_coords[-1]
+
+        return skeleton_coords
 
     def get_raw_centerline_ref(self, img_ref): 
         '''
@@ -464,9 +501,11 @@ class ConstructionBezier(nn.Module):
 
         # skeletonize the image
         skeleton = skimage_morphology.skeletonize(img_thresh_extend)
+        skeleton[:, img_width:] = 0
 
         # get the centerline of the image
         img_raw_skeleton = np.argwhere(skeleton[:, 0:img_width] == 1)
+        img_raw_skeleton = self.find_endpoints(skeleton, img_raw_skeleton)
 
         self.img_raw_skeleton = torch.as_tensor(img_raw_skeleton).float()
 
@@ -699,7 +738,8 @@ class ConstructionBezier(nn.Module):
 
         # Convert 3D world position to camera frame
         # pos_bezier_H = torch.cat((self.cylinder_mesh_points, torch.ones(self.num_samples, self.samples_per_circle, 1)), dim=2)
-        pos_bezier_H = torch.cat((self.cylinder_mesh_and_surface_points, torch.ones(self.num_samples, self.samples_per_circle + self.bezier_surface_resolution, 1)), dim=2)
+        # pos_bezier_H = torch.cat((self.cylinder_mesh_and_surface_points, torch.ones(self.num_samples, self.samples_per_circle + self.bezier_surface_resolution, 1)), dim=2)
+        pos_bezier_H = torch.cat((self.cylinder_surface_points, torch.ones(self.num_samples, self.bezier_surface_resolution, 1)), dim=2)
         # print("\n pos_bezier_H shape: " + str(pos_bezier_H.size()))
         # print("\n pos_bezier_H: \n" + str(pos_bezier_H))
 
@@ -818,7 +858,8 @@ class ConstructionBezier(nn.Module):
             tip_point = (int(self.img_raw_skeleton[0, 0]), int(self.img_raw_skeleton[0, 1]))
             boundary_point = (int(self.img_raw_skeleton[-1, 0]), int(self.img_raw_skeleton[-1, 1]))
 
-            cv2.circle(segmented_circle_draw_img_rgb, tip_point, 2, (0, 0, 255), -1)
+            # cv2.circle(segmented_circle_draw_img_rgb, tip_point, 2, (0, 0, 255), -1)
+            cv2.circle(segmented_circle_draw_img_rgb, tip_point, 2, (0, 255, 0), -1) # tip in green circle
             cv2.circle(segmented_circle_draw_img_rgb, boundary_point, 2, (0, 0, 255), -1)
 
 
@@ -845,8 +886,12 @@ class ConstructionBezier(nn.Module):
         # plt.show()
 
         if save_img_path is not None:
+            if not os.path.exists(os.path.dirname(save_img_path)):
+                os.makedirs(os.path.dirname(save_img_path))
             plt.savefig(save_img_path)
             plt.close(fig)
+            
+        plt.close('all')
 
         return segmented_circle_draw_img_rgb       
     

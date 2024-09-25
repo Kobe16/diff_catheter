@@ -1,6 +1,9 @@
 import random
 import numpy as np
 import transforms
+import os
+
+from cc_catheter import CCCatheter
 
 
 class DataGeneration:
@@ -87,8 +90,9 @@ class DataGeneration:
             p_2d[0] = round(self.size_x - p_2d[0])
             p_2d[1] = round(p_2d[1])
 
+            margin = 10 # in pixels
             #if p_2d[0] >= self.size_x or p_2d[0] < 0 or p_2d[1] >= self.size_y or p_2d[1] < 0:  
-            if p_2d[0] >= self.size_x - 5 or p_2d[0] < 5 or p_2d[1] >= self.size_y - 5 or p_2d[1] < 5:                
+            if p_2d[0] >= self.size_x - margin or p_2d[0] < margin or p_2d[1] >= self.size_y - margin or p_2d[1] < margin:                
                 return False
 
         return True
@@ -106,6 +110,7 @@ class DataGeneration:
         Generate a certain number of data within the specified parameter ranges and
             save the data in a given path 
         """
+        print("Start generating data for targets")
         self.generated_data = np.zeros((self.n_data, 3))
 
         n_iter = 0
@@ -113,7 +118,7 @@ class DataGeneration:
 
         while n_valid_data < self.n_data:
 
-            print('n_iter = ', n_iter, ' n_valid_data = ', n_valid_data)
+            # print('n_iter = ', n_iter, ' n_valid_data = ', n_valid_data)
 
             ux_target = self.generate_random_float(self.ux_min, self.ux_max)
             uy_target = self.generate_random_float(self.uy_min, self.uy_max)
@@ -126,7 +131,25 @@ class DataGeneration:
 
             n_iter += 1
         
-        print('Generated ', n_valid_data, ' data in ', n_iter, ' iterations:')
-        print(self.generated_data)
+        print('Generated ', n_valid_data, ' data in ', n_iter, ' iterations')
+        # print(self.generated_data)
 
         np.save(self.save_path, self.generated_data)
+        
+    def visualize_targets(self, save_path, n_mid_points, n_iter):
+        for i, targets in enumerate(self.generated_data):
+            ux = targets[0]
+            uy = targets[1]
+            l = targets[2]
+            
+            catheter = CCCatheter(self.p_0, self.l, self.r, None, None, n_mid_points, n_iter, verbose=0)
+            catheter.set_3dof_params(ux, uy, l)
+            catheter.calculate_cc_points()
+            catheter.calculate_beziers_control_points()
+            
+            name = f'target_{i}'
+            curve_specs_path = os.path.join(save_path , name + '.npy')
+            image_save_path = os.path.join(save_path, name + '.png')
+            
+            print('Rendering image of target bezier curve')
+            catheter.render_beziers(curve_specs_path, image_save_path)
