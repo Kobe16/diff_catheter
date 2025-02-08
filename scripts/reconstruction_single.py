@@ -22,7 +22,7 @@ def random_deviation(point, min_distance=0.01, max_distance=0.05):
     # Return the point after applying the offset
     return point + offset, random_length
 
-folder_path = 'E:/OneDrive - UC San Diego/UCSD/Lab/Catheter/diff_catheter/results/test_diff_render_catheter_v2/gt_dataset6/'
+folder_path = 'E:/OneDrive - UC San Diego/UCSD/Lab/Catheter/diff_catheter/results/test_diff_render_catheter_v2/gt_dataset/'
 gt_name = 'gt_18_0.0006_0.0006_0.2_0.01'
 gt_img_path = folder_path + gt_name + '.png'
 gt_specs_path = folder_path + gt_name + '.npy'
