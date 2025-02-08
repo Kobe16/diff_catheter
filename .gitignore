@@ -4,4 +4,7 @@ diff_render_octupus/torch3d_rendered_imgs/
 *.pyc
 results/
 results_new/
+scripts/test_diff_render_catheter_v2/test_imgs/
+
+
 
