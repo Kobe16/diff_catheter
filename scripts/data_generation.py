@@ -90,7 +90,7 @@ class DataGeneration:
             p_2d[0] = round(self.size_x - p_2d[0])
             p_2d[1] = round(p_2d[1])
 
-            margin = 10 # in pixels
+            margin = 20 # in pixels
             #if p_2d[0] >= self.size_x or p_2d[0] < 0 or p_2d[1] >= self.size_y or p_2d[1] < 0:  
             if p_2d[0] >= self.size_x - margin or p_2d[0] < margin or p_2d[1] >= self.size_y - margin or p_2d[1] < margin:                
                 return False

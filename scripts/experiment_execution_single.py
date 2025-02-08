@@ -1,10 +1,15 @@
+""" Execute target reaching experiment on designated target points in the dataset. """
+
 import os
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 import numpy as np
 
 import camera_settings
 import path_settings
 # from simulation_experiment import SimulationExperiment
-from simulation_experiment_new2 import SimulationExperiment
+from scripts.simulation_experiment import SimulationExperiment
 from data_generation import DataGeneration
 from experiment_setup import experiments
 
@@ -26,7 +31,10 @@ u_noise_percentage = 0.05
 cc_to_bezier_noise = 0.005
 feedback_u_noise_percentage = 0.1
 
-data_list = [31, 47] # 0, 3, 5
+### -----Specify the list of data indices to be executed----- ###
+# data_list = [14] 
+data_list = list(range(0, 100))
+
 data_alias = 'D' + str(0).zfill(2)
 data_save_path = os.path.join(path_settings.target_parameters_dir, data_alias + '.npy')
 target_parameters = np.load(data_save_path)

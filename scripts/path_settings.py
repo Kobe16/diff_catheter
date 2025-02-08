@@ -71,10 +71,10 @@
 # results_dir = '/home/inffzy/nutstore_files/arclab_research/ARCLab-CCCatheter/results'
 
 ## For Kobe Macbook Air (all directory paths changed)
-specs_dir = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/data/bezier_specs'
-image_save_dir = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/data/rendered_images'
-video_save_dir = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/data/rendered_videos'
-contour_images_dir = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/data/contour_images'
+# specs_dir = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/data/bezier_specs'
+# image_save_dir = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/data/rendered_images'
+# video_save_dir = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/data/rendered_videos'
+# contour_images_dir = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/data/contour_images'
 
 # blender_dir = '/Applications/Blender.app/Contents/MacOS/'
 # bezier_render_script = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/blender_files/render_bezier_blender.py'
@@ -87,3 +87,4 @@ bezier_render_script = 'E:/OneDrive - UC San Diego/UCSD/Lab/Catheter/diff_cathet
 blender_dir = 'D:/Blender/'
 target_parameters_dir = 'E:/OneDrive - UC San Diego/UCSD/Lab/Catheter/diff_catheter/data/target_parameters'
 results_dir = 'E:/OneDrive - UC San Diego/UCSD/Lab/Catheter/diff_catheter/results'
+contour_images_dir = 'E:/OneDrive - UC San Diego/UCSD/Lab/Catheter/diff_catheter/data/contour_images'

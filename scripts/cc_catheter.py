@@ -1,3 +1,5 @@
+""" Define the class that represents the catheter in simulation. """
+
 import random
 import numpy as np
 import cv2
@@ -8,7 +10,7 @@ from bezier_set import BezierSet
 
 
 class CCCatheter:
-    def __init__(self, p_0, l, r, loss_2d, tip_loss, n_mid_points, n_iter, verbose=1):
+    def __init__(self, p_0, l, r, loss_2d, tip_loss, n_mid_points, n_iter, verbose=1, theory=False):
         """
         Args:
             p_0 ((3,) numpy array): start point of catheter
@@ -44,6 +46,8 @@ class CCCatheter:
         self.p2d_poses = np.zeros((self.n_iter + 2, self.n_mid_points + 1, 2))
         
         self.noise_list = []
+        
+        self.theory = theory
 
     def set_1dof_params(self, phi, u):
         """
@@ -100,6 +104,7 @@ class CCCatheter:
         
         self.ux_theory = ux
         self.uy_theory = uy
+        self.l_theory = l
 
         self.params[0, 0] = self.ux
         self.params[0, 1] = self.uy
@@ -166,6 +171,8 @@ class CCCatheter:
         for i, (x, y) in enumerate(zip(x_targets, y_targets)):
             p_2d_target = np.array([round(x), round(y)])
             self.target_cc_pt_list_2d.append(p_2d_target)
+            self.target_bezier_params_list_2d = []
+            self.target_bezier_params_list_2d.append(p_2d_target)
             self.p2d_poses[-1, i, :] = p_2d_target
 
     def set_camera_params(self, fx, fy, cx, cy, size_x, size_y, camera_extrinsics):
@@ -280,7 +287,7 @@ class CCCatheter:
 
         else:
             if theory:
-                return transforms.cc_transform_3dof(self.p_0, self.ux_theory, self.uy_theory, self.l, self.r, s)
+                return transforms.cc_transform_3dof(self.p_0, self.ux_theory, self.uy_theory, self.l_theory, self.r, s)
             return transforms.cc_transform_3dof(self.p_0, self.ux, self.uy, self.l, self.r, s)
         
     def u_to_cc(self, theory=False):
@@ -353,20 +360,7 @@ class CCCatheter:
             # constant curvature points in reality (simulation) ------   
             self.cc_pt_list = []
             
-            # ------ Calculate the constant curvature points without noise ------
-            # cc_pt_list_no_noise = []
-            # for i, s in enumerate(self.s_list):
-            #     if self.mode == 1:
-            #         p = self.transform_1dof(s)
-            #     elif self.mode == 2:
-            #         p = self.transform_2dof(s)
-            #     elif self.mode == 3:
-            #         p = self.transform_3dof(s)
-            #     else:
-            #         print('[ERROR] [CCCatheter] Mode invalid')
-            #         exit()
-            #     cc_pt_list_no_noise.append(p)
-                   
+            # ------ Calculate the constant curvature points without noise ------      
             self.cc_pt_list_theory = self.u_to_cc(theory=True)
             
             # ------ Calculate the constant curvature points with noise ------
@@ -374,37 +368,19 @@ class CCCatheter:
             if init:
                 self.ux = random.gauss(self.ux, noise_percentage * self.ux)
                 self.uy = random.gauss(self.uy, noise_percentage * self.uy)
-                # self.l = random.gauss(self.l, noise_percentage * self.l)
-            
-                # cc_pt_list_noisy = []
-
-                # for i, s in enumerate(self.s_list):
-
-                #     if self.mode == 1:
-                #         p = self.transform_1dof(s)
-                #     elif self.mode == 2:
-                #         p = self.transform_2dof(s)
-                #     elif self.mode == 3:
-                #         p = self.transform_3dof(s)
-                #     else:
-                #         print('[ERROR] [CCCatheter] Mode invalid')
-                #         exit()
-
-                #     cc_pt_list_noisy.append(p)   
+                 
             self.cc_pt_list = self.u_to_cc()
-
-            # if self.verbose > 0:
-            #     print('CC Point ' + str(i + 1) + ': ')
-            #     print('    s = ', s)
-            #     print('    p = ', p)
-
-            # if current_iter < 0:
-            #     continue
 
             # if init:
             #     self.p3d_poses[0, i, :] = p
             # else:
             #     self.p3d_poses[current_iter + 1, i, :] = p
+            if current_iter >= 0:
+                for i, p in enumerate(self.cc_pt_list): 
+                    if init:
+                        self.p3d_poses[0, i, :] = p
+                    else:
+                        self.p3d_poses[current_iter + 1, i, :] = p
 
     def convert_bezier_to_cc(self, optimized_bezier_specs, current_iter=0):
         """
@@ -432,8 +408,8 @@ class CCCatheter:
         self.cc_pt_list[0] = p_mid
         self.cc_pt_list[1] = p_end
 
-        self.p3d_poses[current_iter + 1, 0, :] = p_mid
-        self.p3d_poses[current_iter + 1, 1, :] = p_end   
+        # self.p3d_poses[current_iter + 1, 0, :] = p_mid
+        # self.p3d_poses[current_iter + 1, 1, :] = p_end   
 
     def convert_cc_points_to_2d(self, current_iter=0, init=False, target=False):
         """
@@ -470,8 +446,11 @@ class CCCatheter:
 
                 p_2d = transforms.world_to_image_transform(p, self.camera_extrinsics, self.fx, self.fy, self.cx,
                                                            self.cy)
-                p_2d[0] = round(self.size_x - p_2d[0])
-                p_2d[1] = round(p_2d[1])
+                # p_2d[0] = round(self.size_x - p_2d[0])
+                # p_2d[1] = round(p_2d[1])
+                
+                # p_2d[0] = round(p_2d[0])
+                # p_2d[1] = round(self.size_y - p_2d[1])
 
                 if p_2d[0] >= self.size_x or p_2d[0] < 0 or p_2d[1] >= self.size_y or p_2d[1] < 0:
                     print('[ERROR] [CCCatheter] Target falls outside of image. Target 2D position = ', p_2d)
@@ -495,10 +474,8 @@ class CCCatheter:
             for i, p in enumerate(self.cc_pt_list):
                 p_2d = transforms.world_to_image_transform(p, self.camera_extrinsics, self.fx, self.fy, self.cx,
                                                            self.cy)
-                p_2d[0] = self.size_x - p_2d[0]
-
-                if p_2d[0] >= self.size_x or p_2d[0] < 0 or p_2d[1] >= self.size_y or p_2d[1] < 0:
-                    in_view = False
+                # p_2d[0] = self.size_x - p_2d[0]
+                # p_2d[1] = self.size_y - p_2d[1]
 
                 self.cc_pt_list_2d.append(p_2d)
 
@@ -513,10 +490,15 @@ class CCCatheter:
                     self.p2d_poses[0, i, :] = p_2d
                 else:
                     self.p2d_poses[current_iter + 1, i, :] = p_2d
+            
+            # Check if the tip of the catheter is in view      
+            tip = self.cc_pt_list_2d[-1]
+            if tip[0] >= self.size_x or tip[0] < 0 or tip[1] >= self.size_y or tip[1] < 0:
+                in_view = False
 
         return in_view
     
-    def convert_bezier_points_to_2d(self, current_iter=0, target=False, use_reconstruction=False):
+    def convert_bezier_points_to_2d(self, current_iter=0, init=False, target=False, use_reconstruction=False):
         """
         Convert points on the constant curvature curve to 2D points on the image taken by camera given the camera info
 
@@ -548,8 +530,14 @@ class CCCatheter:
 
                 p_2d = transforms.world_to_image_transform(p, self.camera_extrinsics, self.fx, self.fy, self.cx,
                                                            self.cy)
-                p_2d[0] = round(self.size_x - p_2d[0])
-                p_2d[1] = round(p_2d[1])
+                # p_2d[0] = round(self.size_x - p_2d[0])
+                # p_2d[1] = round(p_2d[1])
+                
+                # p_2d[0] = round(p_2d[0])
+                # p_2d[1] = round(self.size_y - p_2d[1])
+                
+                # p_2d[0] = round(self.size_x - p_2d[0])
+                # p_2d[1] = round(self.size_y - p_2d[1])
 
                 if p_2d[0] >= self.size_x or p_2d[0] < 0 or p_2d[1] >= self.size_y or p_2d[1] < 0:
                     print('[ERROR] [CCCatheter] Target falls outside of image. Target 2D position = ', p_2d)
@@ -573,7 +561,8 @@ class CCCatheter:
             for i, p in enumerate(self.bezier_params_optimized):
                 p_2d = transforms.world_to_image_transform(p, self.camera_extrinsics, self.fx, self.fy, self.cx,
                                                             self.cy)
-                p_2d[0] = self.size_x - p_2d[0]
+                # p_2d[0] = self.size_x - p_2d[0]
+                # p_2d[1] = self.size_y - p_2d[1]
 
                 if p_2d[0] >= self.size_x or p_2d[0] < 0 or p_2d[1] >= self.size_y or p_2d[1] < 0:
                     in_view = False
@@ -588,10 +577,8 @@ class CCCatheter:
                 for i, p in enumerate(self.bezier_params_list):
                     p_2d = transforms.world_to_image_transform(p, self.camera_extrinsics, self.fx, self.fy, self.cx,
                                                                 self.cy)
-                    p_2d[0] = self.size_x - p_2d[0]
-
-                    if p_2d[0] >= self.size_x or p_2d[0] < 0 or p_2d[1] >= self.size_y or p_2d[1] < 0:
-                        in_view = False
+                    # p_2d[0] = self.size_x - p_2d[0]
+                    # p_2d[1] = self.size_y - p_2d[1]
 
                     self.bezier_params_list_2d.append(p_2d)
 
@@ -602,10 +589,24 @@ class CCCatheter:
                     if current_iter < 0:
                         continue
 
-                    # if init:
-                    #     self.p2d_poses[0, i, :] = p_2d
-                    # else:
-                    #     self.p2d_poses[current_iter + 1, i, :] = p_2d
+                    if init:
+                        self.p2d_poses[0, i, :] = p_2d
+                    else:
+                        self.p2d_poses[current_iter + 1, i, :] = p_2d
+                        
+                # Check if the tip of the catheter is in view      
+                tip = self.bezier_params_list_2d[-1]
+                if tip[0] >= self.size_x or tip[0] < 0 or tip[1] >= self.size_y or tip[1] < 0:
+                    in_view = False
+                    
+            if self.bezier_params_list_theory:
+                self.bezier_params_list_2d_theory = []
+
+                for i, p in enumerate(self.bezier_params_list_theory):
+                    p_2d = transforms.world_to_image_transform(p, self.camera_extrinsics, self.fx, self.fy, self.cx,
+                                                                self.cy)
+
+                    self.bezier_params_list_2d_theory.append(p_2d)
 
         return in_view
 
@@ -819,6 +820,12 @@ class CCCatheter:
                 if hasattr(self, 'bezier_params_optimized_2d'):
                     bezier_params_list_2d = self.bezier_params_optimized_2d
                     print("Use reconstruction result as feedback")
+                    
+                # if use theoretical value as feedback
+                elif self.theory:
+                    bezier_params_list_2d = self.bezier_params_list_2d_theory
+                    print("Use theoritical value as feedback")
+                    
                 # if use ground truth as feedback
                 else:
                     bezier_params_list_2d = self.bezier_params_list_2d
@@ -853,6 +860,12 @@ class CCCatheter:
                 if hasattr(self, 'bezier_params_optimized'):
                     bezier_params_list = self.bezier_params_optimized
                     print("Use reconstruction result as feedback")
+                
+                # if use theoretical value as feedback
+                elif self.theory:
+                    bezier_params_list = self.bezier_params_list_theory
+                    print("Use theoritical value as feedback")
+                    
                 # if use ground truth as feedback
                 else:
                     bezier_params_list = self.bezier_params_list
@@ -881,14 +894,14 @@ class CCCatheter:
                 
             if self.tip_loss:
                 p_diffs = np.zeros((2, 1))
-                p_diffs[:, 0] = self.target_cc_pt_list_2d[-1] - self.bezier_params_list_2d[-1]
+                p_diffs[:, 0] = self.target_bezier_params_list_2d[-1] - self.bezier_params_list_2d[-1]
                 loss = np.linalg.norm(p_diffs)
                 return loss
 
             else:
                 p_diffs = np.zeros((2 * len(self.bezier_params_list_2d), 1))
 
-                for i, (p, p_target) in enumerate(zip(self.bezier_params_list_2d, self.target_cc_pt_list_2d)):
+                for i, (p, p_target) in enumerate(zip(self.bezier_params_list_2d, self.target_bezier_params_list_2d)):
                     p_diffs[i * 2:(i + 1) * 2, 0] = (p_target - p)
                 loss = (np.linalg.norm(p_diffs[:2]) + np.linalg.norm(p_diffs[2:])) / 2
                 return loss
@@ -913,36 +926,6 @@ class CCCatheter:
                     p_diffs[i * 3:(i + 1) * 3, 0] = (p_target - p)
                 loss = (np.linalg.norm(p_diffs[:3]) + np.linalg.norm(p_diffs[3:])) / 2
                 return loss
-                    
-    # def generate_noise(self, point, noise_level):
-    #     """
-    #     Generate noise based on the input point and a seed value.
-    #     This ensures that similar points will generate similar noise.
-    #     """
-    #     seed = hash(tuple(point)) % 2**32
-    #     np.random.seed(seed)
-    #     noise = noise_level * np.random.randn(*point.shape)
-    #     print("Noise generated: ", noise)
-    #     return noise
-    
-    # # 生成用于平移的向量，确保相近的参考点产生相似的偏移向量
-    # def generate_noise(self, reference_point, translation_magnitude=0.002, noise_scale=2.0):
-    #     # 将参考点乘以一个缩放因子，确保平滑性
-    #     scaled_point = reference_point / noise_scale
-        
-    #     # print(type(scaled_point), scaled_point)
-    #     scaled_point = np.array(scaled_point, dtype=np.float64)
-        
-    #     # 使用参考点的坐标生成噪声方向向量，使用 sin 生成平滑随机值
-    #     noise = np.sin(scaled_point * np.pi * 2)
-        
-    #     # 随机生成的方向不是单位向量，先归一化成单位向量
-    #     random_direction = noise / np.linalg.norm(noise)
-        
-    #     # 将单位向量乘以 translation_magnitude，保证平移向量的模长为指定值
-    #     translation_vector = random_direction * translation_magnitude
-    #     print("Noise generated: ", translation_vector, "magnitude: ", np.linalg.norm(translation_vector))
-    #     return translation_vector
     
     def generate_noise(self, reference_point, min_translation_magnitude=0.001, max_translation_magnitude=0.002, noise_scale=1.0, magnitude_variation_factor=20.0):
         """
@@ -974,7 +957,7 @@ class CCCatheter:
         return translation_vector
 
 
-    def calculate_beziers_control_points(self, noise_level=0, target=False):
+    def calculate_beziers_control_points(self, current_iter=0, init=False, noise_level=0, target=False):
         """
         Given the list of points on the constant curvature curve, calculate the control points for Bezier curves.
         Results: 
@@ -1004,6 +987,9 @@ class CCCatheter:
                 self.target_bezier_params_list = []
                 self.target_bezier_params_list.append(b1)
                 self.target_bezier_params_list.append(p_end)
+                
+                self.p3d_poses[-1, 0, :] = b1
+                self.p3d_poses[-1, 1, :] = p_end
                 
             return
         
@@ -1045,6 +1031,12 @@ class CCCatheter:
         # 3 bezier control points, for control loop
         self.bezier_params_list.append(c)
         self.bezier_params_list.append(p_end)
+        
+        for i, p in enumerate(self.bezier_params_list): 
+            if init:
+                self.p3d_poses[0, i, :] = p
+            else:
+                self.p3d_poses[current_iter + 1, i, :] = p
 
         if self.verbose > 1:
             print('Bezier ' + str(i) + ': ')
@@ -1483,25 +1475,25 @@ class CCCatheter:
             J = J[-3:, :]
 
         if self.loss_2d:
+            
+            # if use reconstruction result as feedback
+            if hasattr(self, 'bezier_params_optimized'):
+                bezier_params_list = self.bezier_params_optimized   
+            # if use ground truth as feedback
+            else:
+                bezier_params_list = self.bezier_params_list
 
             if self.tip_loss:
                 # L_diag = transforms.world_to_image_interaction_matrix(self.cc_pt_list[-1], self.camera_extrinsics,
                 #                                                       self.fx, self.fy)
                 
-                # if use reconstruction result as feedback
-                if hasattr(self, 'bezier_params_optimized'):
-                    bezier_params_list = self.bezier_params_optimized   
-                # if use ground truth as feedback
-                else:
-                    bezier_params_list = self.bezier_params_list
-                    
                 L_diag = transforms.world_to_image_interaction_matrix(bezier_params_list[-1], self.camera_extrinsics,
                                                                       self.fx, self.fy)
 
             else:
-                L_diag = np.zeros((2 * len(self.cc_pt_list), 3 * len(self.cc_pt_list)))
+                L_diag = np.zeros((2 * len(bezier_params_list), 3 * len(bezier_params_list)))
 
-                for i, p in enumerate(self.cc_pt_list):
+                for i, p in enumerate(bezier_params_list):
                     L = transforms.world_to_image_interaction_matrix(p, self.camera_extrinsics, self.fx, self.fy)
                     L_diag[i * 2:(i + 1) * 2, i * 3:(i + 1) * 3] = L
 
@@ -1512,9 +1504,15 @@ class CCCatheter:
         weight_matrix = self.weight_matrix[:2, :2]
         # print('weight_matrix = ', weight_matrix)
 
+        # feedback
         d = np.linalg.pinv(J_T @ J + weight_matrix) @ J_T @ self.p_diffs
         d_ux = d[0, 0]
         d_uy = d[1, 0]
+        
+        ux_theory_old = self.ux_theory
+        uy_theory_old = self.uy_theory
+        ux_old = self.ux
+        uy_old = self.uy
 
         self.du = [d_ux, d_uy]
         self.ux_theory += d_ux
@@ -1525,23 +1523,30 @@ class CCCatheter:
             d_ux = random.gauss(d_ux, noise_percentage * d_ux)
             d_uy = random.gauss(d_uy, noise_percentage * d_uy)
 
-        ux_old = self.ux
-        uy_old = self.uy
-
         self.ux += d_ux
         self.uy += d_uy
 
         # Check if the catheter tip is out of image view
+        count = 0
         self.calculate_cc_points(-1)
         while not self.convert_cc_points_to_2d(-1):
             print('[WARNING] View breach caught')
+            
+            if count > 10:
+                print('[ERROR] View breach caught too many times')
+                break
 
             d_ux /= 2
             d_uy /= 2
 
             self.ux = ux_old + d_ux
             self.uy = uy_old + d_uy
+            self.ux_theory = ux_theory_old + d_ux
+            self.uy_theory = uy_theory_old + d_uy
+            self.du = [d_ux, d_uy]
             self.calculate_cc_points(-1)
+            
+            count += 1
 
         self.params[current_iter + 1, 0] = self.ux
         self.params[current_iter + 1, 1] = self.uy
@@ -1604,18 +1609,23 @@ class CCCatheter:
         d_uy = d[1, 0]
         d_l = d[2, 0]
         
-        self.du = [d_ux, d_uy]
+        ux_theory_old = self.ux_theory
+        uy_theory_old = self.uy_theory
+        l_theory_old = self.l_theory
+        ux_old = self.ux
+        uy_old = self.uy
+        l_old = self.l
+        
+        self.du = [d_ux, d_uy, d_l]
         self.ux_theory += d_ux
         self.uy_theory += d_uy
+        self.l_theory += d_l
         
         ## Add noise to parameter updates
         if noise_percentage > 0:
             d_ux = random.gauss(d_ux, noise_percentage * d_ux)
             d_uy = random.gauss(d_uy, noise_percentage * d_uy)
-        
-        ux_old = self.ux
-        uy_old = self.uy
-        l_old = self.l
+            d_l = random.gauss(d_l, noise_percentage * d_l)
 
         self.ux += d_ux
         self.uy += d_uy
@@ -1623,8 +1633,13 @@ class CCCatheter:
 
         # Check if the catheter tip is out of image view
         self.calculate_cc_points(-1)
+        count = 0
         while not self.convert_cc_points_to_2d(-1):
             print('[WARNING] View breach caught')
+            
+            if count > 10:
+                print('[ERROR] View breach caught too many times')
+                break
 
             d_ux /= 2
             d_uy /= 2
@@ -1633,7 +1648,13 @@ class CCCatheter:
             self.ux = ux_old + d_ux
             self.uy = uy_old + d_uy
             self.l = l_old + d_l
+            self.ux_theory = ux_theory_old + d_ux
+            self.uy_theory = uy_theory_old + d_uy
+            self.l_theory = l_theory_old + d_l
+            self.du = [d_ux, d_uy, d_l]
             self.calculate_cc_points(-1)
+            
+            count += 1
 
         self.params[current_iter + 1, 0] = self.ux
         self.params[current_iter + 1, 1] = self.uy

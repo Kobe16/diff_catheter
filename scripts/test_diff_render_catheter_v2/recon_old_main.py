@@ -4,9 +4,31 @@ from datetime import datetime
 from collections import deque
 import pickle
 import os
+import random
 
 from recon_old import CatheterOptimizeModel
 from utils import *
+
+def generate_random_3d_vector(min=0.005, max=0.01, seed=None):
+    # If a seed is provided, set the seed for reproducibility
+    if seed is not None:
+        random.seed(seed)
+        np.random.seed(seed)
+
+    # Generate a random direction using spherical coordinates
+    theta = np.random.uniform(0, np.pi)  # Angle theta in the range [0, π]
+    phi = np.random.uniform(0, 2 * np.pi)  # Angle phi in the range [0, 2π]
+
+    # Generate a random magnitude between [0.001, 0.005]
+    length = np.random.uniform(0.001, 0.005)
+
+    # Convert spherical coordinates to Cartesian coordinates
+    x = length * np.sin(theta) * np.cos(phi)
+    y = length * np.sin(theta) * np.sin(phi)
+    z = length * np.cos(theta)
+
+    # Return the 3D vector as a numpy array
+    return np.array([x, y, z])
 
 def main(scripts_path, dataset_folder, gt_name, rendered_imgs_folder, result_folder, para_init, learning_rate = 3e-2, max_iterations = 200):
     '''
@@ -70,8 +92,8 @@ def main(scripts_path, dataset_folder, gt_name, rendered_imgs_folder, result_fol
 
     optimizer = torch.optim.Adam(catheter_optimize_model.parameters(), lr=learning_rate, betas=(0.9, 0.999), eps=1e-8, weight_decay=0)
 
-    convergence_window_size = 10
-    convergence_threshold = 5e-3 
+    convergence_window_size = 5
+    convergence_threshold = 5e-2
     loss_queue = deque(maxlen=convergence_window_size)
     
     # Run the optimization loop
@@ -125,6 +147,8 @@ def main(scripts_path, dataset_folder, gt_name, rendered_imgs_folder, result_fol
 
     filename = "parameters.txt"
     full_path = scripts_path + '/' + result_folder + '/' + filename
+    if not os.path.exists(os.path.dirname(full_path)):
+        os.makedirs(os.path.dirname(full_path))
     with open(full_path, 'w') as file:
         file.write(f"p_start = {p_start.numpy().tolist()}\n")
         file.write(f"para_init = {para_init.tolist()}\n")
@@ -199,7 +223,7 @@ def main(scripts_path, dataset_folder, gt_name, rendered_imgs_folder, result_fol
     
 
 scripts_path = 'E:/OneDrive - UC San Diego/UCSD/Lab/Catheter/diff_catheter/scripts/test_diff_render_catheter_v2'
-dataset_folder = "gt_dataset4"
+dataset_folder = "gt_dataset5"
 
 # case 1
 # gt_name = 'gt_35_-0.0008_0.0008_0.2_0.01'
@@ -306,8 +330,37 @@ dataset_folder = "gt_dataset4"
 # learning_rate = 2e-3
 
 # case 21
-gt_name = 'gt_6_-0.0012_-0.0002_0.2_0.01'
-para_init = np.array([-0.00671091, 0.01295108, 0.4984588, -0.2834613, -0.04673098, 0.93417034], dtype=np.float32)
+# gt_name = 'gt_6_-0.0012_-0.0002_0.2_0.01'
+# para_init = np.array([-0.00671091, 0.01295108, 0.4984588, -0.2834613, -0.04673098, 0.93417034], dtype=np.float32)
+# learning_rate = 2e-3
+
+# scripts_path = 'E:/OneDrive - UC San Diego/UCSD/Lab/Catheter/diff_catheter/data'
+# dataset_folder = "target_parameters"
+
+# # new case 1 
+# gt_name = 'target_1'
+# gt_full_path = f"{scripts_path}/{dataset_folder}/{gt_name}.npy"
+# para_gt = bezier_conversion(np.load(gt_full_path))
+# print("Ground Truth Parameters:", para_gt)
+# para_gt[:3] += generate_random_3d_vector(seed=21)
+# para_gt[3:] += generate_random_3d_vector(seed=45)
+# para_init = np.array(para_gt, dtype=np.float32)
+# print("Initial Parameters:", para_init)
+# learning_rate = 2e-3
+
+# new case 1 (gt_dataset5)
+gt_name = 'gt_8_0.0002_0.0006_0.2_0.01'
+gt_full_path = f"{scripts_path}/{dataset_folder}/{gt_name}.npy"
+para_gt = read_gt_params(gt_full_path)
+print("Ground Truth Parameters:", para_gt)
+mid_noise = generate_random_3d_vector(seed=71)
+print("Mid Noise:", mid_noise, "Magnitude:", np.linalg.norm(mid_noise))
+end_noise = generate_random_3d_vector(seed=95)
+print("End Noise:", end_noise, "Magnitude:", np.linalg.norm(end_noise))
+para_gt[:3] += mid_noise
+para_gt[3:] += end_noise
+para_init = np.array(para_gt, dtype=np.float32)
+print("Initial Parameters:", para_init)
 learning_rate = 2e-3
 
 

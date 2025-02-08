@@ -6,7 +6,7 @@ import os
 def process_image(img_save_path):
     img_ref_rgb = cv2.imread(img_save_path)
     img_ref_gray = cv2.cvtColor(img_ref_rgb, cv2.COLOR_BGR2GRAY)
-    (thresh, img_ref_thresh) = cv2.threshold(img_ref_gray, 2, 255, cv2.THRESH_BINARY)
+    (thresh, img_ref_thresh) = cv2.threshold(img_ref_gray, 3, 255, cv2.THRESH_BINARY)
     img_ref_binary = np.where(img_ref_thresh == 255, 1, img_ref_thresh)
     
     return img_ref_binary

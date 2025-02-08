@@ -1,5 +1,7 @@
 # Can also ignore all directories and files in a directory.
-//diff_render_octupus/torch3d_rendered_imgs/*
+diff_render_octupus/torch3d_rendered_imgs/
 
 *.pyc
 results/
+results_new/
+

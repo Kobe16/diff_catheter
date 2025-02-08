@@ -20,9 +20,9 @@ l_init = 0.2
 data_alias = 'D' + str(0).zfill(2)
 data_save_path = os.path.join(path_settings.target_parameters_dir, data_alias + '.npy')
 s_list = [0.5, 1]
-
+ 
 data_gen = DataGeneration(n_data, p_0, r, l_init, s_list, data_save_path)
-data_gen.set_target_ranges(0.0005, 0.01, 0.0005, 0.01, 0.2, 0.2) # (-0.005, 0.005, -0.005, 0.005, 0.1, 0.5)
+data_gen.set_target_ranges(-0.005, 0.005, -0.005, 0.005, 0.2, 0.2) # (-0.005, 0.005, -0.005, 0.005, 0.1, 0.5)
 data_gen.set_camera_params(camera_settings.a, camera_settings.b, camera_settings.center_x, camera_settings.center_y, camera_settings.image_size_x, camera_settings.image_size_y, camera_settings.extrinsics)
 data_gen.generate_data()
 target_parameters = np.load(data_save_path)

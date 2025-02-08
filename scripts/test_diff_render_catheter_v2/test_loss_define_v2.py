@@ -130,7 +130,7 @@ class GenerateRefData():
         ref_catheter_contour_coordinates = largest_contour.squeeze()
 
         # Convert coordinates to PyTorch tensor
-        self.ref_catheter_contour_point_cloud = torch.tensor(ref_catheter_contour_coordinates, dtype=torch.float)
+        self.ref_catheter_contour_point_cloud = torch.tensor(ref_catheter_contour_coordinates, dtype=torch.float)[::10]
 
         return self.ref_catheter_contour_point_cloud
         
@@ -292,17 +292,17 @@ class ContourChamferLoss(nn.Module):
             (self.img_render_point_cloud[:, 1] >= 0) & (self.img_render_point_cloud[:, 1] <= 480)
         self.img_render_point_cloud = self.img_render_point_cloud[mask]
         
-        # downsample of projected point cloud
-        num_points = self.img_render_point_cloud.shape[0]
-        target_num_points = int(num_points/8)
-        indices = torch.linspace(0, num_points - 1, target_num_points).long()
-        self.img_render_point_cloud = self.img_render_point_cloud[indices]
+        # # downsample of projected point cloud
+        # num_points = self.img_render_point_cloud.shape[0]
+        # target_num_points = int(num_points/8)
+        # indices = torch.linspace(0, num_points - 1, target_num_points).long()
+        # self.img_render_point_cloud = self.img_render_point_cloud[indices]
         
-        # downsample of reference point cloud
-        num_points = ref_catheter_contour_point_cloud.shape[0]
-        target_num_points = int(num_points/8)
-        indices = torch.linspace(0, num_points - 1, target_num_points).long()
-        ref_catheter_contour_point_cloud = ref_catheter_contour_point_cloud[indices]
+        # # downsample of reference point cloud
+        # num_points = ref_catheter_contour_point_cloud.shape[0]
+        # target_num_points = int(num_points/8)
+        # indices = torch.linspace(0, num_points - 1, target_num_points).long()
+        # ref_catheter_contour_point_cloud = ref_catheter_contour_point_cloud[indices]
         
 
         # Calculate pairwise Euclidean distances

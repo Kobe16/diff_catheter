@@ -1,6 +1,4 @@
-"""
-Reconstruction optimizer with 3 loss functions, used in control pipeline.
-"""
+""" File that encapsulates the core optimization algorithm with 3 loss functions, which can be invoked by the control pipeline. """
 
 import sys
 sys.path.append('..')
@@ -10,7 +8,6 @@ import torch
 import torch.nn as nn
 import numpy as np
 from tqdm.auto import tqdm
-from datetime import datetime
 from collections import deque
 import pickle
 import os
@@ -116,10 +113,25 @@ class CatheterOptimizeModel(nn.Module):
         # Get 2d projected Bezier centerline (position) points
         build_bezier.getBezierProjImg()
         
-        if test:
-            build_bezier.draw2DCylinderImage(self.image_ref, save_img_path + 'current.png')
-
-        loss_contour = self.contour_chamfer_loss(build_bezier.bezier_proj_img.to(self.gpu_or_cpu), self.ref_catheter_contour.to(self.gpu_or_cpu))
+        # if test:
+        #     folder_path, file_name = os.path.split(save_img_path)
+        #     name, ext = os.path.splitext(file_name)
+        #     new_file_name = f"{name}_current{ext}"
+        #     new_img_path = os.path.join(folder_path, new_file_name)
+            
+        #     build_bezier.draw2DCylinderImage(self.image_ref, new_img_path)
+        
+        # If not enough projected Bezier points fall within the image, skip loss_contour
+        coords = build_bezier.bezier_proj_img
+        valid_coords = (coords[:, :, 0] >= 0) & (coords[:, :, 0] <= 640) & \
+               (coords[:, :, 1] >= 0) & (coords[:, :, 1] <= 480)
+        valid_count = valid_coords.sum().item()
+        # print(f"Projected Bezier points in image (loss_contour): {valid_count}")
+        # print(coords[valid_coords])
+        if valid_count < 10:
+            loss_contour = torch.tensor(1e-8).to(self.gpu_or_cpu)
+        else:
+            loss_contour = self.contour_chamfer_loss(build_bezier.bezier_proj_img.to(self.gpu_or_cpu), self.ref_catheter_contour.to(self.gpu_or_cpu))
 
         loss_tip_distance, self.tip_euclidean_distance_loss = self.tip_distance_loss(build_bezier.bezier_proj_centerline_img.to(self.gpu_or_cpu), self.ref_catheter_centerline.to(self.gpu_or_cpu))
         
@@ -138,10 +150,24 @@ class CatheterOptimizeModel(nn.Module):
             if test:
                 img_ref_binary = process_image(self.image_save_path_list[i])
                 image_ref = torch.from_numpy(img_ref_binary.astype(np.float32))
-                construction_bezier.draw2DCylinderImage(image_ref, save_img_path + 'predicted_' + str(i) + '.png')
+                
+                folder_path, file_name = os.path.split(save_img_path)
+                name, ext = os.path.splitext(file_name)
+                new_file_name = f"{name}_predicted_{i}{ext}"
+                new_img_path = os.path.join(folder_path, new_file_name)
+                
+                # construction_bezier.draw2DCylinderImage(image_ref, save_img_path + 'predicted_' + str(i) + '.png')
+                construction_bezier.draw2DCylinderImage(image_ref, new_img_path)
             
-            
-            loss_contour_m = self.contour_chamfer_loss(construction_bezier.bezier_proj_img.to(self.gpu_or_cpu), self.contour_list[i].to(self.gpu_or_cpu))
+            coords = construction_bezier.bezier_proj_img
+            valid_coords = (coords[:, :, 0] >= 0) & (coords[:, :, 0] <= 640) & \
+                (coords[:, :, 1] >= 0) & (coords[:, :, 1] <= 480)
+            valid_count = valid_coords.sum().item()
+            # print(f"Projected Bezier points in image (loss_contour_past): {valid_count}")
+            if valid_count < 10:
+                loss_contour_m = torch.tensor(1e-8).to(self.gpu_or_cpu)
+            else:
+                loss_contour_m = self.contour_chamfer_loss(construction_bezier.bezier_proj_img.to(self.gpu_or_cpu), self.contour_list[i].to(self.gpu_or_cpu))
             motion_model_loss += loss_contour_m.to(self.gpu_or_cpu)
             
             loss_tip_distance_m, self.tip_loss = self.tip_distance_loss(construction_bezier.bezier_proj_centerline_img.to(self.gpu_or_cpu), self.centerline_list[i].to(self.gpu_or_cpu)) 
@@ -179,21 +205,24 @@ class CatheterOptimizeModel(nn.Module):
 
         return loss
     
-def optimize_3_loss(gt_img_path, gt_specs_path, iteration, result_save_path, para_init, gt_img_path_list, delta_u_list, l, learning_rate = 1e-2, max_iterations = 1500, show=False):
+def optimize_3_loss(gt_img_path, gt_specs_path, iteration, result_save_path, para_init, gt_img_path_list, delta_u_list, l, learning_rate = 1e-2, max_iterations = 500, show=False, convergence_window_size=5, convergence_threshold=1e-2):
     '''
     Main function to set up optimzer model and run the optimization loop
     Args:
-        gt_img_path (str): path to the ground truth image
-        gt_specs_path (str): path to the ground truth specs
-        iteration (int): iteration number
+        gt_img_path (str): full path to the ground truth image
+        gt_specs_path (str): full path to the ground truth specs (for loss percentage calculation)
+        iteration (int): iteration number (only used for saving the results)
         result_save_path (str): path to save the optimization results
         para_init (tensor, length 6): initial guess
+        gt_img_path_list (list of str): list of full paths to the past frames ([I_{t-1}, I_{t-2}, ...])
+        delta_u_list: list of d_u values ([[dux, duy]_{t-1}, [dux, duy]_{t-2}, ...], where du_{t-1} = u_{t} - u_{t-1})
     '''
     
     # print(f"Begin optimization for iteration {iteration}")
     # print("gt_img_path: ", gt_img_path)
     # print("gt_specs_path: ", gt_specs_path)
     # print("result_save_path: ", result_save_path)
+    # print("para_init: ", para_init)
     # print("gt_img_path_list: ", gt_img_path_list)
     # print("delta_u_list: ", delta_u_list)
     print("learning_rate: ", learning_rate)
@@ -246,14 +275,14 @@ def optimize_3_loss(gt_img_path, gt_specs_path, iteration, result_save_path, par
     ###========================================================
     catheter_optimize_model = CatheterOptimizeModel(p_start, para_init, img_ref_binary, gpu_or_cpu, past_frames_list, delta_u_list, gt_img_path, gt_img_path_list, l=l).to(gpu_or_cpu)
     
-    catheter_optimize_model_test = CatheterOptimizeModel(p_start, para_gt, img_ref_binary, gpu_or_cpu, past_frames_list, delta_u_list, gt_img_path, gt_img_path_list, l=l).to(gpu_or_cpu)
-    save_img_path = result_save_path + '/' + 'rendered_imgs' + '/'
+    catheter_optimize_model_test = CatheterOptimizeModel(p_start, para_init, img_ref_binary, gpu_or_cpu, past_frames_list, delta_u_list, gt_img_path, gt_img_path_list, l=l).to(gpu_or_cpu)
+    save_img_path = result_save_path + '/' + 'rendered_imgs' + '/' + 'render_0' + '.jpg'
     catheter_optimize_model_test.forward(save_img_path, test=True)
 
     optimizer = torch.optim.Adam(catheter_optimize_model.parameters(), lr=learning_rate, betas=(0.9, 0.999), eps=1e-8, weight_decay=0)
 
-    convergence_window_size = 5
-    convergence_threshold = 1e-2 
+    # convergence_window_size = 5 # 5, 10
+    # convergence_threshold = 1e-2 # 1e-2, 1e-3
     loss_queue = deque(maxlen=convergence_window_size)
     
     # Run the optimization loop
@@ -268,7 +297,7 @@ def optimize_3_loss(gt_img_path, gt_specs_path, iteration, result_save_path, par
         # loss = catheter_optimize_model(save_img_path)
         
         # Run the forward pass
-        if loop_id % 10 == 0: # save rendered image every 10 iterations
+        if loop_id == 0: # save rendered image for the first iteration
             loss = catheter_optimize_model(save_img_path)
         else:
             loss = catheter_optimize_model()
@@ -293,9 +322,6 @@ def optimize_3_loss(gt_img_path, gt_specs_path, iteration, result_save_path, par
         # Update the loss
         loop.set_postfix(loss=loss.item())
         
-        # Save the optimized bezier control points every 100 iterations
-        
-        
         loss_queue.append(loss.item())
 
         # Check for convergence
@@ -303,6 +329,7 @@ def optimize_3_loss(gt_img_path, gt_specs_path, iteration, result_save_path, par
             max_loss = max(loss_queue)
             min_loss = min(loss_queue)
             if max_loss - min_loss < convergence_threshold:
+                loss = catheter_optimize_model(save_img_path, test=True)
                 print(f"Converged at iteration {loop_id}")
                 break
 
@@ -348,19 +375,19 @@ def optimize_3_loss(gt_img_path, gt_specs_path, iteration, result_save_path, par
     plot_2d_end_effector_loss(proj_end_effector_loss_history, full_path, show=show)  
     
     
-    initial_loss = d3d_end_effector_loss_history[0]
-    final_loss = d3d_end_effector_loss_history[-1]
-    loss_decrease_percentage = ((initial_loss - final_loss) / initial_loss) * 100
-    print(f"3D end effector - Initial Loss: {initial_loss:.4f}, Final Loss: {final_loss:.4f}, Loss Decrease Percentage: {loss_decrease_percentage:.2f}%")
+    initial_loss_end = d3d_end_effector_loss_history[0]
+    final_loss_end = d3d_end_effector_loss_history[-1]
+    loss_decrease_percentage = ((initial_loss_end - final_loss_end) / initial_loss_end) * 100
+    print(f"3D end effector - Initial Loss: {initial_loss_end:.4f}, Final Loss: {final_loss_end:.4f}, Loss Decrease Percentage: {loss_decrease_percentage:.2f}%")
     
     full_path = result_save_path + '/' + "3D_tip_loss.png"  
     plot_3d_end_effector_loss(d3d_end_effector_loss_history, full_path, show=show)
     
     
-    initial_loss = d3d_mid_control_point_loss_history[0]
-    final_loss = d3d_mid_control_point_loss_history[-1]
-    loss_decrease_percentage = ((initial_loss - final_loss) / initial_loss) * 100
-    print(f"3D middle control point - Initial Loss: {initial_loss:.4f}, Final Loss: {final_loss:.4f}, Loss Decrease Percentage: {loss_decrease_percentage:.2f}%")
+    initial_loss_mid = d3d_mid_control_point_loss_history[0]
+    final_loss_mid = d3d_mid_control_point_loss_history[-1]
+    loss_decrease_percentage = ((initial_loss_mid - final_loss_mid) / initial_loss_mid) * 100
+    print(f"3D middle control point - Initial Loss: {initial_loss_mid:.4f}, Final Loss: {final_loss_mid:.4f}, Loss Decrease Percentage: {loss_decrease_percentage:.2f}%")
     
     full_path = result_save_path + '/' + "3D_shape_loss.png" 
     plot_3d_mid_control_point_loss(d3d_mid_control_point_loss_history, full_path, show=show)
@@ -395,4 +422,4 @@ def optimize_3_loss(gt_img_path, gt_specs_path, iteration, result_save_path, par
     full_path = result_save_path + '/' + "motion_model_loss.png"
     plot_motion_model_loss(loss_motion_model_history, full_path, log_scale=True, show=show)
     
-    return result
+    return result, [initial_loss_end, final_loss_end, initial_loss_mid, final_loss_mid]

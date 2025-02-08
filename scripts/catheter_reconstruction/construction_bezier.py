@@ -53,13 +53,15 @@ class ConstructionBezier(nn.Module):
         # self.ax = self.fig.add_subplot(111, projection='3d')
         self.epsilon = 1e-7
 
-        self.num_samples = 30
-        self.samples_per_circle = 20
-        self.bezier_surface_resolution = 30
+        self.num_samples = 15 # 30
+        self.samples_per_circle = 3 # 20, 3, 6
+        self.bezier_surface_resolution = 4 # 30, 4, 10
         self.bezier_circle_angle_increment = (2 * math.pi) / self.bezier_surface_resolution
 
         self.cylinder_mesh_points = torch.zeros(self.num_samples, self.samples_per_circle, 3)
         self.cylinder_surface_points = torch.zeros(self.num_samples, self.bezier_surface_resolution, 3)
+        # For drawing the cylinder mesh points
+        self.cylinder_surface_points_draw = torch.zeros(30, 30, 3)
 
         self.radius = radius
 
@@ -90,13 +92,18 @@ class ConstructionBezier(nn.Module):
         self.cy = cy
         self.size_x = size_x
         self.size_y = size_y
-        # self.cam_RT_H = torch.as_tensor(camera_extrinsics).float()
+        cam_RT_H = torch.as_tensor(camera_extrinsics).float()
         self.cam_K = torch.as_tensor(camera_intrinsics)
+        
+        # Conversion from Blender's camera frame convention to OpenCV's convention
+        # Rotate 180 degrees around x-axis
+        conversion = torch.tensor([[1., 0., 0., 0.], [0., -1., 0., 0.], [0., 0., -1., 0.], [0., 0., 0., 1.]])
+        self.cam_RT_H = torch.matmul(conversion, cam_RT_H)
 
-        # camera E parameters
-        cam_RT_H = torch.tensor([[1., 0., 0., 0.], [0., 1., 0., 0.], [0., 0., 1., 0.], [0., 0., 0., 1.]])
-        invert_y = torch.tensor([[1., 0., 0., 0.], [0., 1., 0., 0.], [0., 0., 1., 0.], [0., 0., 0., 1.]])
-        self.cam_RT_H = torch.matmul(invert_y, cam_RT_H)
+        # # camera E parameters
+        # cam_RT_H = torch.tensor([[1., 0., 0., 0.], [0., 1., 0., 0.], [0., 0., 1., 0.], [0., 0., 0., 1.]])
+        # invert_y = torch.tensor([[1., 0., 0., 0.], [0., 1., 0., 0.], [0., 0., 1., 0.], [0., 0., 0., 1.]])
+        # self.cam_RT_H = torch.matmul(invert_y, cam_RT_H)
 
     def isPointInImage(self, p_proj, width, height):
         '''
@@ -428,16 +435,25 @@ class ConstructionBezier(nn.Module):
                 endpoints.append((x, y))
                 endpoint_indices.append(idx)
 
-        if len(endpoints) != 2:
+        if len(endpoints) != 2 and len(endpoints) != 3:
+            print("Number of endpoints: ", len(endpoints))
             raise ValueError("The skeleton does not have exactly two endpoints.")
-
-        # Determine tip and base based on y-coordinate
-        if endpoints[0][1] < endpoints[1][1]:
-            tip, base = endpoints[0], endpoints[1]
-            tip_idx, base_idx = endpoint_indices[0], endpoint_indices[1]
-        else:
-            tip, base = endpoints[1], endpoints[0]
-            tip_idx, base_idx = endpoint_indices[1], endpoint_indices[0]
+        
+        if len(endpoints) == 3:
+            y_coords = [point[1] for point in endpoints]
+            sorted_indices = np.argsort(y_coords)
+            mid_idx = sorted_indices[1]
+            max_idx = sorted_indices[2]
+            tip_idx, base_idx = endpoint_indices[mid_idx], endpoint_indices[max_idx]
+            
+        if len(endpoints) == 2:
+            # Determine tip and base based on y-coordinate
+            if endpoints[0][1] < endpoints[1][1]:
+                tip, base = endpoints[0], endpoints[1]
+                tip_idx, base_idx = endpoint_indices[0], endpoint_indices[1]
+            else:
+                tip, base = endpoints[1], endpoints[0]
+                tip_idx, base_idx = endpoint_indices[1], endpoint_indices[0]
 
         # Swap tip with the first element and base with the last element
         skeleton_coords[0], skeleton_coords[tip_idx] = skeleton_coords[tip_idx], skeleton_coords[0]
@@ -468,36 +484,39 @@ class ConstructionBezier(nn.Module):
 
         # get the left boundary of the image
         left_boundarylineA_id = np.squeeze(np.argwhere(img_thresh_extend[:, img_width - 1]))
-        left_boundarylineB_id = np.squeeze(np.argwhere(img_thresh_extend[:, img_width - 10]))
+        left_boundarylineB_id = np.squeeze(np.argwhere(img_thresh_extend[:, img_width - 1]))
 
-        # get the center of the left boundary
-        extend_vec_pt1_center = np.array([img_width, (left_boundarylineA_id[0] + left_boundarylineA_id[-1]) / 2])
-        extend_vec_pt2_center = np.array(
-            [img_width - 5, (left_boundarylineB_id[0] + left_boundarylineB_id[-1]) / 2])
-        exten_vec = extend_vec_pt2_center - extend_vec_pt1_center
+        # If points of interests are found in the right extended region, continue expansion
+        # Otherwise, skip the expansion directly to skeletonization 
+        if len(left_boundarylineA_id) != 0 and len(left_boundarylineB_id) != 0:
+            # get the center of the left boundary
+            extend_vec_pt1_center = np.array([img_width, (left_boundarylineA_id[0] + left_boundarylineA_id[-1]) / 2])
+            extend_vec_pt2_center = np.array(
+                [img_width - 5, (left_boundarylineB_id[0] + left_boundarylineB_id[-1]) / 2])
+            exten_vec = extend_vec_pt2_center - extend_vec_pt1_center
 
-        # avoid dividing by zero
-        if exten_vec[1] == 0:
-            exten_vec[1] += 0.00000001
+            # avoid dividing by zero
+            if exten_vec[1] == 0:
+                exten_vec[1] += 0.00000001
 
-        # get the slope and intercept of the line
-        k_extend = exten_vec[0] / exten_vec[1]
-        b_extend_up = img_width - k_extend * left_boundarylineA_id[0]
-        b_extend_dw = img_width - k_extend * left_boundarylineA_id[-1]
+            # get the slope and intercept of the line
+            k_extend = exten_vec[0] / exten_vec[1]
+            b_extend_up = img_width - k_extend * left_boundarylineA_id[0]
+            b_extend_dw = img_width - k_extend * left_boundarylineA_id[-1]
 
-        # extend the ROI to the right, so that the skeletonization algorithm could be able to get the centerline
-        # then it could be able to get the intersection point with boundary
-        extend_ROI = np.array([
-            np.array([img_width, left_boundarylineA_id[0]]),
-            np.array([img_width, left_boundarylineA_id[-1]]),
-            np.array([img_width + extend_dim,
-                      int(((img_width + extend_dim) - b_extend_dw) / k_extend)]),
-            np.array([img_width + extend_dim,
-                      int(((img_width + extend_dim) - b_extend_up) / k_extend)])
-        ])
+            # extend the ROI to the right, so that the skeletonization algorithm could be able to get the centerline
+            # then it could be able to get the intersection point with boundary
+            extend_ROI = np.array([
+                np.array([img_width, left_boundarylineA_id[0]]),
+                np.array([img_width, left_boundarylineA_id[-1]]),
+                np.array([img_width + extend_dim,
+                        int(((img_width + extend_dim) - b_extend_dw) / k_extend)]),
+                np.array([img_width + extend_dim,
+                        int(((img_width + extend_dim) - b_extend_up) / k_extend)])
+            ])
 
-        # fill the extended ROI with 1
-        img_thresh_extend = cv2.fillPoly(img_thresh_extend, [extend_ROI], 1)
+            # fill the extended ROI with 1
+            img_thresh_extend = cv2.fillPoly(img_thresh_extend, [extend_ROI], 1)
 
         # skeletonize the image
         skeleton = skimage_morphology.skeletonize(img_thresh_extend)
@@ -763,7 +782,7 @@ class ConstructionBezier(nn.Module):
         # print("\n self.bezier_proj_img shape: " + str(self.bezier_proj_img.size()))
         # print("\n self.bezier_proj_img average value: " + str(torch.mean(self.bezier_proj_img)))
         # print("\n self.bezier_proj_img: " + str(self.bezier_proj_img))
-
+        
     def getProjCylPointCam(self, p, cam_K): 
         '''
         Helper method to get projected image of cylinder mesh (i.e., 3d cylinder model).
@@ -859,24 +878,26 @@ class ConstructionBezier(nn.Module):
             boundary_point = (int(self.img_raw_skeleton[-1, 0]), int(self.img_raw_skeleton[-1, 1]))
 
             # cv2.circle(segmented_circle_draw_img_rgb, tip_point, 2, (0, 0, 255), -1)
-            cv2.circle(segmented_circle_draw_img_rgb, tip_point, 2, (0, 255, 0), -1) # tip in green circle
-            cv2.circle(segmented_circle_draw_img_rgb, boundary_point, 2, (0, 0, 255), -1)
+            cv2.circle(segmented_circle_draw_img_rgb, tip_point, 4, (0, 255, 0), -1) # tip in green circle
+            cv2.circle(segmented_circle_draw_img_rgb, boundary_point, 4, (0, 0, 255), -1)
 
 
         # Draw projected tip and boundary points onto the reference image.
-        pTip = (int(self.bezier_proj_centerline_img[0, 0]), int(self.bezier_proj_centerline_img[0, 1]))
-        pBoundary = (int(self.bezier_proj_centerline_img[-1, 0]), int(self.bezier_proj_centerline_img[-1, 1]))
+        pBoundary = (int(self.bezier_proj_centerline_img[0, 0]), int(self.bezier_proj_centerline_img[0, 1]))
+        pTip = (int(self.bezier_proj_centerline_img[-1, 0]), int(self.bezier_proj_centerline_img[-1, 1]))
+        if 0 <= pBoundary[0] <= 640 and 0 <= pBoundary[1] <= 480:
+            cv2.circle(segmented_circle_draw_img_rgb, pBoundary, 2, (255, 0, 0), -1)
         cv2.circle(segmented_circle_draw_img_rgb, pTip, 2, (255, 0, 0), -1)
-        cv2.circle(segmented_circle_draw_img_rgb, pBoundary, 2, (255, 0, 0), -1)
+        
 
 
         # ---------------
         # plot with
         # ---------------
-        fig, ax = plt.subplots(figsize=(8, 5))
+        fig, ax = plt.subplots(figsize=(8, 5), dpi=300)
 
         ax.imshow(cv2.cvtColor(segmented_circle_draw_img_rgb, cv2.COLOR_BGR2RGB))
-        ax.set_title('Projected Points Overlaid on Reference Image: Iteration 100')
+        # ax.set_title('Projected Points Overlaid on Reference Image: Iteration 100')
 
         # set axes titles
         ax.set_xlabel('Width (pixels)')

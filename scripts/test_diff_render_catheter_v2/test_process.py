@@ -1,3 +1,9 @@
+"""
+A comprehensive test file. 
+For a ground truth image and a initial guess, test the reading of ground truth data, 
+image processing, projected and reference centerline and contour, 3D visualization.
+"""
+
 import sys
 sys.path.append('..')
 sys.path.insert(1, 'E:/OneDrive - UC San Diego/UCSD/Lab/Catheter/diff_catheter/scripts')

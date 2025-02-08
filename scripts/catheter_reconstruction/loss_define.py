@@ -32,16 +32,25 @@ class GenerateRefData():
                 endpoints.append((x, y))
                 endpoint_indices.append(idx)
 
-        if len(endpoints) != 2:
+        if len(endpoints) != 2 and len(endpoints) != 3:
+            print("Number of endpoints: ", len(endpoints))
             raise ValueError("The skeleton does not have exactly two endpoints.")
-
-        # Determine tip and base based on y-coordinate
-        if endpoints[0][1] < endpoints[1][1]:
-            tip, base = endpoints[0], endpoints[1]
-            tip_idx, base_idx = endpoint_indices[0], endpoint_indices[1]
-        else:
-            tip, base = endpoints[1], endpoints[0]
-            tip_idx, base_idx = endpoint_indices[1], endpoint_indices[0]
+        
+        if len(endpoints) == 3:
+            y_coords = [point[1] for point in endpoints]
+            sorted_indices = np.argsort(y_coords)
+            mid_idx = sorted_indices[1]
+            max_idx = sorted_indices[2]
+            tip_idx, base_idx = endpoint_indices[mid_idx], endpoint_indices[max_idx]
+            
+        if len(endpoints) == 2:
+            # Determine tip and base based on y-coordinate
+            if endpoints[0][1] < endpoints[1][1]:
+                tip, base = endpoints[0], endpoints[1]
+                tip_idx, base_idx = endpoint_indices[0], endpoint_indices[1]
+            else:
+                tip, base = endpoints[1], endpoints[0]
+                tip_idx, base_idx = endpoint_indices[1], endpoint_indices[0]
 
         # Swap tip with the first element and base with the last element
         skeleton_coords[0], skeleton_coords[tip_idx] = skeleton_coords[tip_idx], skeleton_coords[0]
@@ -67,36 +76,42 @@ class GenerateRefData():
 
         # get the left boundary of the image
         left_boundarylineA_id = np.squeeze(np.argwhere(img_thresh_extend[:, img_width - 1]))
-        left_boundarylineB_id = np.squeeze(np.argwhere(img_thresh_extend[:, img_width - 10]))
+        # left_boundarylineB_id = np.squeeze(np.argwhere(img_thresh_extend[:, img_width - 10]))
+        left_boundarylineB_id = np.squeeze(np.argwhere(img_thresh_extend[:, img_width - 1]))
+        
+        # print("length: ", len(left_boundarylineA_id))
 
-        # get the center of the left boundary
-        extend_vec_pt1_center = np.array([img_width, (left_boundarylineA_id[0] + left_boundarylineA_id[-1]) / 2])
-        extend_vec_pt2_center = np.array(
-            [img_width - 5, (left_boundarylineB_id[0] + left_boundarylineB_id[-1]) / 2])
-        exten_vec = extend_vec_pt2_center - extend_vec_pt1_center
+        # If points of interests are found in the right extended region, continue expansion
+        # Otherwise, skip the expansion directly to skeletonization 
+        if len(left_boundarylineA_id) != 0 and len(left_boundarylineB_id) != 0:
+            # get the center of the left boundary
+            extend_vec_pt1_center = np.array([img_width, (left_boundarylineA_id[0] + left_boundarylineA_id[-1]) / 2])
+            extend_vec_pt2_center = np.array(
+                [img_width - 5, (left_boundarylineB_id[0] + left_boundarylineB_id[-1]) / 2])
+            exten_vec = extend_vec_pt2_center - extend_vec_pt1_center
 
-        # avoid dividing by zero
-        if exten_vec[1] == 0:
-            exten_vec[1] += 0.00000001
+            # avoid dividing by zero
+            if exten_vec[1] == 0:
+                exten_vec[1] += 0.00000001
 
-        # get the slope and intercept of the line
-        k_extend = exten_vec[0] / exten_vec[1]
-        b_extend_up = img_width - k_extend * left_boundarylineA_id[0]
-        b_extend_dw = img_width - k_extend * left_boundarylineA_id[-1]
+            # get the slope and intercept of the line
+            k_extend = exten_vec[0] / exten_vec[1]
+            b_extend_up = img_width - k_extend * left_boundarylineA_id[0]
+            b_extend_dw = img_width - k_extend * left_boundarylineA_id[-1]
 
-        # extend the ROI to the right, so that the skeletonization algorithm could be able to get the centerline
-        # then it could be able to get the intersection point with boundary
-        extend_ROI = np.array([
-            np.array([img_width, left_boundarylineA_id[0]]),
-            np.array([img_width, left_boundarylineA_id[-1]]),
-            np.array([img_width + extend_dim,
-                      int(((img_width + extend_dim) - b_extend_dw) / k_extend)]),
-            np.array([img_width + extend_dim,
-                      int(((img_width + extend_dim) - b_extend_up) / k_extend)])
-        ])
+            # extend the ROI to the right, so that the skeletonization algorithm could be able to get the centerline
+            # then it could be able to get the intersection point with boundary
+            extend_ROI = np.array([
+                np.array([img_width, left_boundarylineA_id[0]]),
+                np.array([img_width, left_boundarylineA_id[-1]]),
+                np.array([img_width + extend_dim,
+                        int(((img_width + extend_dim) - b_extend_dw) / k_extend)]),
+                np.array([img_width + extend_dim,
+                        int(((img_width + extend_dim) - b_extend_up) / k_extend)])
+            ])
 
-        # fill the extended ROI with 1
-        img_thresh_extend = cv2.fillPoly(img_thresh_extend, [extend_ROI], 1)
+            # fill the extended ROI with 1
+            img_thresh_extend = cv2.fillPoly(img_thresh_extend, [extend_ROI], 1)
 
         # skeletonize the image
         skeleton = skimage_morphology.skeletonize(img_thresh_extend)
@@ -160,8 +175,12 @@ class ContourChamferLoss(nn.Module):
         # print("self.img_render_point_cloud shape: ", self.img_render_point_cloud.shape)
         # print("self.img_render_point_cloud: ", self.img_render_point_cloud)
         
-        mask = (self.img_render_point_cloud[:, 0] >= 0) & (self.img_render_point_cloud[:, 0] <= 2000) & \
-            (self.img_render_point_cloud[:, 1] >= 0) & (self.img_render_point_cloud[:, 1] <= 1000)
+        # mask = (self.img_render_point_cloud[:, 0] >= 0) & (self.img_render_point_cloud[:, 0] <= 2000) & \
+        #     (self.img_render_point_cloud[:, 1] >= 0) & (self.img_render_point_cloud[:, 1] <= 1000)
+        # self.img_render_point_cloud = self.img_render_point_cloud[mask]
+        
+        mask = (self.img_render_point_cloud[:, 0] >= 0) & (self.img_render_point_cloud[:, 0] <= 640) & \
+            (self.img_render_point_cloud[:, 1] >= 0) & (self.img_render_point_cloud[:, 1] <= 480)
         self.img_render_point_cloud = self.img_render_point_cloud[mask]
         
         # downsample of projected point cloud

@@ -133,13 +133,13 @@ class ConstructionBezier(nn.Module):
         self.epsilon = 1e-8
 
         # Number of samples to take along Bezier Curve
-        self.num_samples = 30
+        self.num_samples = 10
         # self.num_samples = 6
         # Number of samples to take on INSIDE of each circle
-        self.samples_per_circle = 20
+        self.samples_per_circle = 6
         # self.samples_per_circle = 20
         # Number of samples to take on OUTSIDE border of each circle
-        self.bezier_surface_resolution = 30
+        self.bezier_surface_resolution = 10
         # self.bezier_surface_resolution = 15
         self.bezier_circle_angle_increment = (2 * math.pi) / self.bezier_surface_resolution
 

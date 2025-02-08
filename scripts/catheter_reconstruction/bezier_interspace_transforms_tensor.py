@@ -95,9 +95,9 @@ def calculate_radius(A, B, C):
     M_AC = (A + C) / 2
 
     direction_AB = torch.linalg.cross(normal_ABC, vec_AB)
-    direction_AC = torch.linalg.cross(normal_ABC, vec_AC)
+    direction_AC = - torch.linalg.cross(normal_ABC, vec_AC)
     
-    t = (M_AC[0] - M_AB[0]) / (direction_AB[0] + direction_AC[0])
+    t = (M_AC[0] - M_AB[0]) / (direction_AB[0] - direction_AC[0])
     circle_center = M_AB + t * direction_AB
     
     radius = torch.norm(circle_center - A)

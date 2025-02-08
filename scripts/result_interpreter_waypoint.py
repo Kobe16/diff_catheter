@@ -1,3 +1,5 @@
+""" Visualize results of the waypoint tracking experiment """
+
 import os
 import pickle
 import numpy as np
@@ -9,9 +11,9 @@ import contour_tracer
 
 
 
-n_iter = 10
-identifiers_of_interest = ['UN008', 'UN009', 'IA008', 'IA009', 'IA108', 'IA109', 'UN012', 'UN013', 'IA012', 'IA013', 'IA112', 'IA113']
-image_names = ['circle', 'rectangle', 'heart', 'tumor4595_mask']
+n_iter = 5
+identifiers_of_interest = ['EXP009', 'EXP010']
+image_names = ['rectangle'] # heart, rectangle
 
 
 ### Table 5
@@ -57,6 +59,8 @@ for i, image_name in enumerate(image_names):
     
 np.savetxt(os.path.join(path_settings.results_dir, 'table_5_mean.csv'), table_5_mean, delimiter=',', fmt='%f')
 np.savetxt(os.path.join(path_settings.results_dir, 'table_5_std.csv'), table_5_std, delimiter=',', fmt='%f')
+print("Mean: ", table_5_mean)
+print("Standard Deviation: ", table_5_std)
 
 
 
@@ -95,14 +99,25 @@ for i, image_name in enumerate(image_names):
     ax.set_zlabel('Z Label')
 
 
-    for identifier in identifiers_of_interest:
+    overwrite = True
+    
+    for idx, identifier in enumerate(identifiers_of_interest):
+        print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
         method_dir = os.path.join(path_settings.results_dir, identifier)
         data_dir_outer = os.path.join(method_dir, image_name)
 
-        resized_image_temp = resized_image
-
         x_2d_old = None
         y_2d_old = None
+        
+        if overwrite:
+            resized_image_temp = resized_image
+            if idx == 0:
+                color_2d = (50, 50, 220)  # Red, (0, 0, 255)
+            else:
+                color_2d = (0, 140, 255)  # Orange, (0, 165, 255)
+        else:
+            resized_image_temp = cv2.imread(resized_image_path)
+            color_2d = (50, 50, 220)  # Red
 
         for i in range(n_data):
 
@@ -116,11 +131,29 @@ for i, image_name in enumerate(image_names):
             #rendered_image_path = os.path.join(data_dir, 'images', str(n_iter).zfill(3) + '.png')
             #rendered_image = cv2.imread(rendered_image_path)
             #resized_image_temp = cv2.addWeighted(resized_image_temp, 0.9, rendered_image, 0.1, 0)
+            
+            def rectangle(cx, cy, size):
+                half = size // 2  # Half the size for calculations
+                pts = np.array([
+                    [cx - half, cy - half],  # Top-left
+                    [cx + half, cy - half],  # Top-right
+                    [cx + half, cy + half],  # Bottom-right
+                    [cx - half, cy + half]   # Bottom-left
+                ], np.int32)
+                pts = pts.reshape((-1, 1, 2))
+                
+                return pts
 
             ## Plot 2D point
             x_2d = int(p2d_report[-2, -1, 0])
             y_2d = int(p2d_report[-2, -1, 1])
-            resized_image_temp = cv2.circle(resized_image_temp, (x_2d, y_2d), radius=3, color=(0, 0, 255), thickness=2)
+            
+            if i == 0:
+                pts = rectangle(x_2d, y_2d, 12)
+                resized_image_temp = cv2.polylines(resized_image_temp, [pts], isClosed=True, color=color_2d, thickness=2)
+                # resized_image_temp = cv2.fillPoly(resized_image_temp, pts, color=color_2d)
+            else:    
+                resized_image_temp = cv2.circle(resized_image_temp, (x_2d, y_2d), radius=3, color=color_2d, thickness=2)
 
             if i > 0:
                 x_start = (x_2d + 2 * x_2d_old) // 3
@@ -128,10 +161,10 @@ for i, image_name in enumerate(image_names):
                 x_end = (2 * x_2d + x_2d_old) // 3
                 y_end = (2 * y_2d + y_2d_old) // 3
 
-                resized_image_temp = cv2.arrowedLine(resized_image_temp, (x_start, y_start), (x_end, y_end), color=(0, 0, 255), thickness=2, tipLength=0.3)
+                resized_image_temp = cv2.arrowedLine(resized_image_temp, (x_start, y_start), (x_end, y_end), color=color_2d, thickness=2, tipLength=0.3)
             
             x_2d_old = x_2d
-            y_2d_old = y_2d                
+            y_2d_old = y_2d              
 
             ## Plot 3D point
             x_3d = p3d_report[-2, -1, 0]
@@ -140,6 +173,7 @@ for i, image_name in enumerate(image_names):
             ax.scatter(x_3d, y_3d, z_3d, marker='o')
 
         cv2.imwrite(os.path.join(path_settings.results_dir, identifier + '_' + image_name + '_p2d.png'), resized_image_temp)
+        print('Saved image: ', os.path.join(path_settings.results_dir, identifier + '_' + image_name + '_p2d.png'))
         #plt.show()
         #pickle.dump(fig_3d, open(os.path.join(path_settings.results_dir, identifier + '_' + image_name + '_p3d.pickle'), 'wb'))
 

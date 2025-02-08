@@ -101,7 +101,7 @@ class CatheterOptimizeModel(nn.Module):
         build_bezier.getCylinderMeshProjImg()
         # Get 2d projected Bezier centerline (position) points
         build_bezier.getBezierProjImg()
-        build_bezier.draw2DCylinderImage(self.image_ref, save_img_path)
+        # build_bezier.draw2DCylinderImage(self.image_ref, save_img_path)
 
         # TODO: add function to save image to file
 
@@ -109,10 +109,12 @@ class CatheterOptimizeModel(nn.Module):
         ### 4) Compute Loss using various Loss Functions
         ###========================================================
         loss_contour = self.contour_chamfer_loss(build_bezier.bezier_proj_img.to(self.gpu_or_cpu), self.ref_catheter_contour.to(self.gpu_or_cpu))
+        # loss_contour = torch.tensor(1.0)
         loss_tip_distance, self.tip_euclidean_distance_loss = self.tip_distance_loss(build_bezier.bezier_proj_centerline_img.to(self.gpu_or_cpu), self.ref_catheter_centerline.to(self.gpu_or_cpu))
 
         weight = torch.tensor([1.0, 3.0])
         loss = loss_contour * weight[0] + loss_tip_distance * weight[1]
+        # loss = loss_tip_distance
         
         # TODO: Plot the loss
         self.loss = loss

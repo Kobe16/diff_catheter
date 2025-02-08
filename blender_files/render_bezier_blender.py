@@ -1,3 +1,6 @@
+""" This script configures render settings, including materials, camera and lighting, 
+and then invokes Blender to render the Bezier curve based on the specified curve parameters."""
+
 import os
 import bpy # Blender Python API
 import argparse
@@ -144,6 +147,16 @@ cam_3.data.shift_y = 0
 cam_3.location = (0, -0.2, -0.2)
 cam_3.rotation_euler = Euler((0.0 * pi / 180, 150.0 * pi / 180, 270 * pi / 180))
 
+ops.object.camera_add(enter_editmode=False, align='VIEW')
+cam_4 = context.scene.objects['Camera.003']
+cam_4.data.lens = 10
+cam_4.data.sensor_width = 7.2481
+cam_4.data.clip_start = 0.01
+cam_4.data.shift_x = 0
+cam_4.data.shift_y = 0
+cam_4.location = (-0.3, -0.2, 0)
+cam_4.rotation_euler = Euler((0.0 * pi / 180, 180.0 * pi / 180, 180 * pi / 180))
+
 ## Light Settings
 bpy.ops.object.light_add(type='POINT', align='WORLD', location=(0, 0, 0))
 light = context.scene.objects['Point']
@@ -171,6 +184,11 @@ elif int(args.viewpoint_mode) == 2:
 
 elif int(args.viewpoint_mode) == 3:
     context.scene.camera = cam_3
+    context.scene.render.filepath = args.save_path
+    ops.render.render(use_viewport = True, write_still = True)
+    
+elif int(args.viewpoint_mode) == 4:
+    context.scene.camera = cam_4
     context.scene.render.filepath = args.save_path
     ops.render.render(use_viewport = True, write_still = True)
 

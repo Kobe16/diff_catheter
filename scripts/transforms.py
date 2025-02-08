@@ -2,6 +2,26 @@ import numpy as np
 
 
 
+# def world_to_image_transform(p, camera_extrinsics, fx, fy, cx, cy):
+#     """
+#     Convert 3D point to 2D given camera parameters
+
+#     Args:
+#         p ((3,) numpy array): a point in 3D
+#         camera_extrinsics ((4, 4) numpy array): RT matrix 
+#         fx (float): horizontal direction focal length
+#         fy (float): vertical direction focal length
+#         cx (float): horizontal center of image
+#         cy (float): vertical center of image
+#     """
+#     p_4d = np.append(p, 1)
+#     p_cam = camera_extrinsics @ p_4d
+
+#     p_x = p_cam[0] * fx / p_cam[2] + cx
+#     p_y = p_cam[1] * fy / p_cam[2] + cy
+
+#     return np.array([p_x, p_y])
+
 def world_to_image_transform(p, camera_extrinsics, fx, fy, cx, cy):
     """
     Convert 3D point to 2D given camera parameters
@@ -9,16 +29,16 @@ def world_to_image_transform(p, camera_extrinsics, fx, fy, cx, cy):
     Args:
         p ((3,) numpy array): a point in 3D
         camera_extrinsics ((4, 4) numpy array): RT matrix 
-        fx (float): horizontal direction focal length
-        fy (float): vertical direction focal length
+        fx (float): horizontal direction focal length * scaling factor
+        fy (float): vertical direction focal length * scaling factor
         cx (float): horizontal center of image
         cy (float): vertical center of image
     """
     p_4d = np.append(p, 1)
     p_cam = camera_extrinsics @ p_4d
 
-    p_x = p_cam[0] * fx / p_cam[2] + cx
-    p_y = p_cam[1] * fy / p_cam[2] + cy
+    p_x = p_cam[0] * fx / (-p_cam[2]) + cx # the f here is already multiplied by scaling factor
+    p_y = p_cam[1] * fy / (-p_cam[2]) + cy
 
     return np.array([p_x, p_y])
 
@@ -72,6 +92,27 @@ def image_to_world_transform(p_2d, camera_extrinsics, fx, fy, cx, cy, z):
     
 #     return L
 
+# def world_to_image_interaction_matrix(p, camera_extrinsics, fx, fy):
+#     """
+#     Calculate world to image interaction matrix. This is used for inverse Jacobian with 2D loss
+
+#     Args:
+#         p ((3,) numpy array): a point in 3D
+#         camera_extrinsics ((4, 4) numpy array): RT matrix 
+#         fx (float): horizontal direction focal length
+#         fy (float): vertical direction focal length
+#     """
+
+#     p_X = p[0]
+#     p_Y = p[1]
+#     p_Z = p[2]
+
+#     L = np.array([
+#         [-1 * fx / p_Z, 0, -1 * fx * p_X / p_Z / p_Z],
+#         [0, -1 * fy / p_Z, -1 * fy * p_Y / p_Z / p_Z]])
+    
+#     return L
+
 def world_to_image_interaction_matrix(p, camera_extrinsics, fx, fy):
     """
     Calculate world to image interaction matrix. This is used for inverse Jacobian with 2D loss
@@ -79,21 +120,22 @@ def world_to_image_interaction_matrix(p, camera_extrinsics, fx, fy):
     Args:
         p ((3,) numpy array): a point in 3D
         camera_extrinsics ((4, 4) numpy array): RT matrix 
-        fx (float): horizontal direction focal length
+        fx (float): horizontal direction focal length (already multiplied by scaling factor)
         fy (float): vertical direction focal length
     """
-
-    p_X = p[0]
-    p_Y = p[1]
-    p_Z = p[2]
-
-    #L = np.array([
-    #    [-1 * fx / p_Z, 0, fx * p_X / p_Z / p_Z],
-    #    [0, -1 * fy / p_Z, fy * p_Y / p_Z / p_Z]])
-
-    L = np.array([
-        [-1 * fx / p_Z, 0, -1 * fx * p_X / p_Z / p_Z],
-        [0, -1 * fy / p_Z, -1 * fy * p_Y / p_Z / p_Z]])
+    p_4d = np.append(p, 1)
+    p_cam = camera_extrinsics @ p_4d
+    
+    p_X = p_cam[0]
+    p_Y = p_cam[1]
+    p_Z = p_cam[2]
+    
+    # the f here is already multiplied by scaling factor
+    L1 = np.array([
+        [-fx / p_Z, 0, fx * p_X / p_Z / p_Z],
+        [0, -fy / p_Z, fy * p_Y / p_Z / p_Z]])
+    L2 = camera_extrinsics[:3, :3]
+    L = L1 @ L2
     
     return L
 
