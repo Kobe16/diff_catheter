@@ -2,3 +2,4 @@
 //diff_render_octupus/torch3d_rendered_imgs/*
 
 *.pyc
+results/
