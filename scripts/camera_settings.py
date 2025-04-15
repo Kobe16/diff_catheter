@@ -17,8 +17,8 @@ center_x = 320.0
 center_y = 240.0
 
 intrinsics = np.array([[a, 0, center_x], [0, b, center_y], [0.0, 0.0, 1.0]])
-print('Camera Intrinsics:')
-print(intrinsics)
+# print('Camera Intrinsics:')
+# print(intrinsics)
 
 location = np.array([0, 0, 0]).reshape((3, 1))
 rotation_euler = np.array([0, np.pi, np.pi])
@@ -44,5 +44,5 @@ extrinsics = np.concatenate((extrinsics, np.array([[0, 0, 0, 1]])), axis=0)
 
 # extrinsics = np.array([[1, 0, 0, 0], [0, -1, 0, 0], [0, 0, -1, 0], [0, 0, 0, 1]])
 
-print('Camera Extrinsics:')
-print(extrinsics)
+# print('Camera Extrinsics:')
+# print(extrinsics)

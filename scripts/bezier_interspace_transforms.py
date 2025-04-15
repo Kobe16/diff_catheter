@@ -72,12 +72,19 @@ def calculate_jacobian_2dof_ux_uy(p_start, ux, uy, l, r):
     Returns:
         ((6, 2) numpy array): Jacobian of 2DoF interspace control with (ux, uy) parameterization
     """
-    bezier_mid_over_cc_start = d_bezier_d_p_start(0.5)
-    bezier_end_over_cc_start = d_bezier_d_p_start(1.0)
-    bezier_mid_over_cc_mid = d_bezier_d_p_mid(0.5)
-    bezier_end_over_cc_mid = d_bezier_d_p_mid(1.0)
-    bezier_mid_over_cc_end = d_bezier_d_p_end(0.5)
-    bezier_end_over_cc_end = d_bezier_d_p_end(1.0)
+    # bezier_mid_over_cc_start = d_bezier_d_p_start(0.5)
+    # bezier_end_over_cc_start = d_bezier_d_p_start(1.0)
+    # bezier_mid_over_cc_mid = d_bezier_d_p_mid(0.5)
+    # bezier_end_over_cc_mid = d_bezier_d_p_mid(1.0)
+    # bezier_mid_over_cc_end = d_bezier_d_p_end(0.5)
+    # bezier_end_over_cc_end = d_bezier_d_p_end(1.0)
+    
+    bezier_mid_over_cc_start = -0.5
+    bezier_mid_over_cc_mid = 2.0
+    bezier_mid_over_cc_end = -0.5
+    bezier_end_over_cc_start = 0.0
+    bezier_end_over_cc_mid = 0.0
+    bezier_end_over_cc_end = 1.0
 
     cc_start_over_ux = transforms.d_ux_cc_transform_3dof(p_start, ux, uy, l, r, s=0.0)
     cc_start_over_uy = transforms.d_uy_cc_transform_3dof(p_start, ux, uy, l, r, s=0.0)
@@ -87,16 +94,16 @@ def calculate_jacobian_2dof_ux_uy(p_start, ux, uy, l, r):
     cc_end_over_uy = transforms.d_uy_cc_transform_3dof(p_start, ux, uy, l, r, s=1.0)
 
 
-    G_p_mid_ux = bezier_mid_over_cc_start * cc_start_over_ux + bezier_mid_over_cc_mid * cc_mid_over_ux + bezier_mid_over_cc_end * cc_end_over_ux
-    G_p_mid_uy = bezier_mid_over_cc_start * cc_start_over_uy + bezier_mid_over_cc_mid * cc_mid_over_uy + bezier_mid_over_cc_end * cc_end_over_uy
-    G_p_end_ux = bezier_end_over_cc_start * cc_start_over_ux + bezier_end_over_cc_mid * cc_mid_over_ux + bezier_end_over_cc_end * cc_end_over_ux
-    G_p_end_uy = bezier_end_over_cc_start * cc_start_over_uy + bezier_end_over_cc_mid * cc_mid_over_uy + bezier_end_over_cc_end * cc_end_over_uy
+    G_b_mid_ux = bezier_mid_over_cc_start * cc_start_over_ux + bezier_mid_over_cc_mid * cc_mid_over_ux + bezier_mid_over_cc_end * cc_end_over_ux
+    G_b_mid_uy = bezier_mid_over_cc_start * cc_start_over_uy + bezier_mid_over_cc_mid * cc_mid_over_uy + bezier_mid_over_cc_end * cc_end_over_uy
+    G_b_end_ux = bezier_end_over_cc_start * cc_start_over_ux + bezier_end_over_cc_mid * cc_mid_over_ux + bezier_end_over_cc_end * cc_end_over_ux
+    G_b_end_uy = bezier_end_over_cc_start * cc_start_over_uy + bezier_end_over_cc_mid * cc_mid_over_uy + bezier_end_over_cc_end * cc_end_over_uy
 
     J = np.zeros((6, 2))
-    J[0:3, 0] = G_p_mid_ux
-    J[0:3, 1] = G_p_mid_uy
-    J[3:6, 0] = G_p_end_ux
-    J[3:6, 1] = G_p_end_uy
+    J[0:3, 0] = G_b_mid_ux
+    J[0:3, 1] = G_b_mid_uy   
+    J[3:6, 0] = G_b_end_ux
+    J[3:6, 1] = G_b_end_uy
 
     return J
 
@@ -115,12 +122,19 @@ def calculate_jacobian_3dof_ux_uy(p_start, ux, uy, l, r):
     Returns:
         ((6, 3) numpy array): Jacobian of 3DoF interspace control with (ux, uy) parameterization
     """
-    bezier_mid_over_cc_start = d_bezier_d_p_start(0.5)
-    bezier_end_over_cc_start = d_bezier_d_p_start(1.0)
-    bezier_mid_over_cc_mid = d_bezier_d_p_mid(0.5)
-    bezier_end_over_cc_mid = d_bezier_d_p_mid(1.0)
-    bezier_mid_over_cc_end = d_bezier_d_p_end(0.5)
-    bezier_end_over_cc_end = d_bezier_d_p_end(1.0)
+    # bezier_mid_over_cc_start = d_bezier_d_p_start(0.5)
+    # bezier_end_over_cc_start = d_bezier_d_p_start(1.0)
+    # bezier_mid_over_cc_mid = d_bezier_d_p_mid(0.5)
+    # bezier_end_over_cc_mid = d_bezier_d_p_mid(1.0)
+    # bezier_mid_over_cc_end = d_bezier_d_p_end(0.5)
+    # bezier_end_over_cc_end = d_bezier_d_p_end(1.0)
+    
+    bezier_mid_over_cc_start = -0.5
+    bezier_mid_over_cc_mid = 2.0
+    bezier_mid_over_cc_end = -0.5
+    bezier_end_over_cc_start = 0.0
+    bezier_end_over_cc_mid = 0.0
+    bezier_end_over_cc_end = 1.0
 
     cc_start_over_ux = transforms.d_ux_cc_transform_3dof(p_start, ux, uy, l, r, s=0.0)
     cc_start_over_uy = transforms.d_uy_cc_transform_3dof(p_start, ux, uy, l, r, s=0.0)

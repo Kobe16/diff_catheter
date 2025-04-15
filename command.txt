@@ -1,0 +1,7 @@
+conda create --name catheter2 python=3.7
+pip install numpy opencv-python matplotlib tqdm shapely scikit-image 
+pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+pip install bpy
+pip install mathutils==2.81.2
+
+(visual studio生成工具2019， 16.11.36)

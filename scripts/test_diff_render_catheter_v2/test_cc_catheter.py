@@ -4,7 +4,7 @@ import cv2
 
 import test_transforms
 import test_bezier_interspace_transforms
-from test_optimize_executor import ReconstructionOptimizeScriptExecutor
+# from test_optimize_executor import ReconstructionOptimizeScriptExecutor
 
 import sys
 import os
@@ -389,6 +389,26 @@ class CCCatheter():
             #     print('    p_start = ', p_start)
             #     print('    p_mid   = ', p_mid)
             #     print('    p_end   = ', p_end)
+            
+    # def calculate_beziers_control_points_3(self):
+    #     """
+    #     Use only one middle control point for each Bezier curve.
+    #     """
+    #     if not self.cc_pt_list:
+    #         print('[ERROR] [CCCatheter] self.cc_pt_list invalid. Run calculate_cc_points() first')
+    #         exit()
+
+    #     n_beziers = int(len(self.cc_pt_list) / 2)
+    #     self.bezier_set = BezierSet(n_beziers)
+
+    #     cc_pt_list_with_p_0 = [self.p_0] + self.cc_pt_list
+
+    #     for i in range(n_beziers):
+    #         p_start = cc_pt_list_with_p_0[2 * i]
+    #         p_mid = cc_pt_list_with_p_0[2 * i + 1]
+    #         p_end = cc_pt_list_with_p_0[2 * (i + 1)]
+
+    #         self.bezier_set.enter_spec(p_start, p_end, p_mid, p_mid)
 
     def render_beziers(self,
                        curve_specs_path,
@@ -430,22 +450,22 @@ class CCCatheter():
         self.p_diffs = self.bezier_default - self.bezier_config
 
     
-    def get_bezier_reconstruction(self, img_get_path, img_save_path): 
-        """
-        Get the bezier params of a catheter from a picture of the catheter. 
-        Call's Kobe's summer 2023 catheter reconstruction script
-        """
-        para_init = self.bezier_config.reshape((6,))
+    # def get_bezier_reconstruction(self, img_get_path, img_save_path): 
+    #     """
+    #     Get the bezier params of a catheter from a picture of the catheter. 
+    #     Call's Kobe's summer 2023 catheter reconstruction script
+    #     """
+    #     para_init = self.bezier_config.reshape((6,))
 
-        optimize_executor = ReconstructionOptimizeScriptExecutor(
-            self.p_0,
-            para_init,
-            self.n_reconst_iters,
-            img_get_path,
-            img_save_path
-        )
+    #     optimize_executor = ReconstructionOptimizeScriptExecutor(
+    #         self.p_0,
+    #         para_init,
+    #         self.n_reconst_iters,
+    #         img_get_path,
+    #         img_save_path
+    #     )
 
-        optimize_executor.execute()
+    #     optimize_executor.execute()
 
     def get_2dof_bezier_interspace_ux_uy(self, bezier_reconst, bezier_t0, ux_t0, damping_const): 
         """

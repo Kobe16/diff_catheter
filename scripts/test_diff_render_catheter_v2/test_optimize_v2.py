@@ -3,27 +3,28 @@ File used to run optimization on the catheter parameters.
 Uses Adam optimizer. 
 '''
 import sys
-from turtle import pd
+# from turtle import pd
 
 sys.path.append('..')
 
-import os
+# import os
 import numpy as np
 
 # import transforms
 # import bezier_interspace_transforms
-sys.path.insert(1, '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/scripts')
-from bezier_set import BezierSet
-import camera_settings
+# sys.path.insert(1, '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/scripts')
+sys.path.insert(1, 'E:/OneDrive - UC San Diego/UCSD/Lab/Catheter/diff_catheter/scripts')
+# from bezier_set import BezierSet
+# import camera_settings
 
 import torch
 
-import open3d as o3d
+# import open3d as o3d
 
 import cv2
 import matplotlib.pyplot as plt
 
-import pdb
+# import pdb
 
 from test_reconst_v2 import ConstructionBezier
 # from blender_catheter import BlenderRenderCatheter
@@ -32,14 +33,15 @@ from test_loss_define_v2 import ChamferLossWholeImage, ContourChamferLoss, \
     TipChamferLoss, BoundaryPointChamferLoss, TipDistanceLoss, BoundaryPointDistanceLoss, \
     GenerateRefData
 
-import pytorch3d
+# import pytorch3d
 
 import torch.nn as nn
-import torch.nn.functional as F
+# import torch.nn.functional as F
 
-import matplotlib.cm as colormap
+# import matplotlib.cm as colormap
 
-from tqdm.notebook import tqdm
+# from tqdm.notebook import tqdm
+from tqdm.auto import tqdm
 
 
 class CatheterOptimizeModel(nn.Module): 
@@ -193,10 +195,10 @@ class CatheterOptimizeModel(nn.Module):
         # loss_boundary_point_distance_loss = self.boundary_point_distance_loss(self.build_bezier.bezier_proj_img, self.image_ref)
 
         # loss_whole_image = self.chamfer_loss_whole_image(self.build_bezier.bezier_proj_img, self.image_ref)
-        loss_contour = self.contour_chamfer_loss(self.build_bezier.bezier_proj_img, self.ref_catheter_contour)
+        loss_contour = self.contour_chamfer_loss(self.build_bezier.bezier_proj_img.to(gpu_or_cpu), self.ref_catheter_contour.to(gpu_or_cpu))
         # loss_tip = self.tip_chamfer_loss(self.build_bezier.bezier_proj_img, self.ref_catheter_centerline)
         # loss_boundary = self.boundary_point_chamfer_loss(self.build_bezier.bezier_proj_img, self.ref_catheter_centerline)
-        loss_tip_distance, self.tip_euclidean_distance_loss = self.tip_distance_loss(self.build_bezier.bezier_proj_centerline_img, self.ref_catheter_centerline)
+        loss_tip_distance, self.tip_euclidean_distance_loss = self.tip_distance_loss(self.build_bezier.bezier_proj_centerline_img.to(gpu_or_cpu), self.ref_catheter_centerline.to(gpu_or_cpu))
         # loss_boundary_point_distance_loss = self.boundary_point_distance_loss(self.build_bezier.bezier_proj_img, self.ref_catheter_centerline)
 
 
@@ -229,7 +231,7 @@ if __name__ == '__main__':
     ### 1) SET TO GPU OR CPU COMPUTING
     ###========================================================
     if torch.cuda.is_available():
-        gpu_or_cpu = torch.device("cuda:0")
+        gpu_or_cpu = torch.device("cuda:0") 
         torch.cuda.set_device(gpu_or_cpu)
     else:
         gpu_or_cpu = torch.device("cpu")
@@ -252,7 +254,8 @@ if __name__ == '__main__':
     para_init = np.array([0.0365, 0.0036,  0.1202,  0.0056, -0.0166, 0.1645],
                      dtype=np.float32)
 
-    case_naming = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/scripts/test_diff_render_catheter_v2/blender_imgs/test_catheter_gt1'
+    # case_naming = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/scripts/test_diff_render_catheter_v2/blender_imgs/test_catheter_gt1'
+    case_naming = 'E:/OneDrive - UC San Diego/UCSD/Lab/Catheter/diff_catheter/scripts/test_diff_render_catheter_v2/blender_imgs/test_catheter_gt1'
     img_save_path = case_naming + '.png'
     cc_specs_path = case_naming + '.npy'
     target_specs_path = None
@@ -292,13 +295,17 @@ if __name__ == '__main__':
     optimizer = torch.optim.Adam(catheter_optimize_model.parameters(), lr=1e-2)
 
     # Run the optimization loop
-    loop = tqdm(range(100))
+    num_iterations = 50
+    loop = tqdm(range(num_iterations))
     for loop_id in loop:
         print("\n================================================================================================================")
         print("loop_id: ", loop_id)
 
 
-        save_img_path = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/scripts/test_diff_render_catheter_v2/rendered_imgs/' \
+        # save_img_path = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/scripts/test_diff_render_catheter_v2/rendered_imgs/' \
+        #     + 'render_' + str(loop_id) + '.jpg'
+            
+        save_img_path = 'E:/OneDrive - UC San Diego/UCSD/Lab/Catheter/diff_catheter/scripts/test_diff_render_catheter_v2/rendered_imgs/' \
             + 'render_' + str(loop_id) + '.jpg'
 
         # pdb.set_trace()
@@ -349,6 +356,12 @@ if __name__ == '__main__':
 
         print("Loss: ", loss.item())
 
+
+    for name, param in catheter_optimize_model.named_parameters():
+        param_numpy = param.data.cpu().numpy()
+        filename = f"{name}.npy"
+        np.save(filename, param_numpy)
+        print(f"Saved {name} to {filename}")
 
     # Given array of values proj_end_effector_loss_history, create plot of loss vs. iterations
     iterations_x_axis_proj = list(range(len(proj_end_effector_loss_history)))

@@ -76,8 +76,14 @@ image_save_dir = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/da
 video_save_dir = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/data/rendered_videos'
 contour_images_dir = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/data/contour_images'
 
-blender_dir = '/Applications/Blender.app/Contents/MacOS/'
-bezier_render_script = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/blender_files/render_bezier_blender.py'
+# blender_dir = '/Applications/Blender.app/Contents/MacOS/'
+# bezier_render_script = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/blender_files/render_bezier_blender.py'
 
-target_parameters_dir = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/data/target_parameters'
-results_dir = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/results'
+# target_parameters_dir = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/data/target_parameters'
+# results_dir = '/Users/kobeyang/Downloads/Programming/ECESRIP/diff_catheter/results'
+
+# For Xipeng's windows 11
+bezier_render_script = 'E:/OneDrive - UC San Diego/UCSD/Lab/Catheter/diff_catheter/blender_files/render_bezier_blender.py'
+blender_dir = 'D:/Blender/'
+target_parameters_dir = 'E:/OneDrive - UC San Diego/UCSD/Lab/Catheter/diff_catheter/data/target_parameters'
+results_dir = 'E:/OneDrive - UC San Diego/UCSD/Lab/Catheter/diff_catheter/results'

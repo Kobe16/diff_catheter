@@ -38,7 +38,8 @@ def cc_transform_3dof(p_0, ux, uy, l, r, s=1):
     """
     p_0_4d = np.append(p_0, 1)
     u = np.sqrt(ux ** 2 + uy ** 2)
-    k = u / r
+    # k = u / r
+    k = u / (l * r)
 
     T = np.array([
         [1 + (ux ** 2) / (u ** 2) * (np.cos(k * s) - 1), ux * uy / (u ** 2) * (np.cos(k * s) - 1),       -1 * ux / u * np.sin(k * s), r * l * ux * (1 - np.cos(k * s)) / (u ** 2)],
@@ -48,7 +49,7 @@ def cc_transform_3dof(p_0, ux, uy, l, r, s=1):
 
     return (T @ p_0_4d)[:3]
 
-
+# Old version
 def d_ux_cc_transform_3dof(p_0, ux, uy, l, r, s=1):
     """
     Calculate derivative of constant curvature 3DoF transformation with respect to ux
@@ -77,6 +78,36 @@ def d_ux_cc_transform_3dof(p_0, ux, uy, l, r, s=1):
          (s * ux * uy * np.cos((s * u) / r)) / (r * (u**2)) - (ux * uy * np.sin((s * u) / r)) / (u**3),
          -((s * ux * np.sin((s * u) / r)) / (r * u)),
          (l * s * ux * np.cos((s * u) / r)) / (u**2) - (l * r * ux * np.sin((s * u) / r)) / (u**3)],
+        [0, 0, 0, 0]])
+        
+    return (dT_dux @ p_0_4d)[:3]
+
+# New version
+def d_ux_cc_transform_3dof(p_0, ux, uy, l, r, s=1):
+    """
+    Calculate derivative of constant curvature 3DoF transformation with respect to ux
+    
+    Args:
+        p_0 ((3,) numpy array): start point of catheter
+        ux (float): 1st pair of tendon length (responsible for catheter bending)
+        uy (float): 2nd pair of tendon length (responsible for catheter bending)
+        l (float): length of catheter
+        r (float): cross section radius of catheter
+        s (float from 0 to 1 inclusive): s value representing position on the CC curve
+    """
+    p_0_4d = np.append(p_0, 1)
+    # u = np.sqrt(ux ** 2 + uy ** 2)
+    
+    dT_dux = np.array([
+        [-2*ux**3*(np.cos(s*np.sqrt(ux**2 + uy**2)/(l*r)) - 1)/(ux**2 + uy**2)**2 + 2*ux*(np.cos(s*np.sqrt(ux**2 + uy**2)/(l*r)) - 1)/(ux**2 + uy**2) - s*ux**3*np.sin(s*np.sqrt(ux**2 + uy**2)/(l*r))/(l*r*(ux**2 + uy**2)**(3/2)), 
+        -2*ux**2*uy*(np.cos(s*np.sqrt(ux**2 + uy**2)/(l*r)) - 1)/(ux**2 + uy**2)**2 + uy*(np.cos(s*np.sqrt(ux**2 + uy**2)/(l*r)) - 1)/(ux**2 + uy**2) - s*ux**2*uy*np.sin(s*np.sqrt(ux**2 + uy**2)/(l*r))/(l*r*(ux**2 + uy**2)**(3/2)), 
+        ux**2*np.sin(s*np.sqrt(ux**2 + uy**2)/(l*r))/(ux**2 + uy**2)**(3/2) - np.sin(s*np.sqrt(ux**2 + uy**2)/(l*r))/np.sqrt(ux**2 + uy**2) - s*ux**2*np.cos(s*np.sqrt(ux**2 + uy**2)/(l*r))/(l*r*(ux**2 + uy**2)), 
+        2*l*r*ux**2*(1 - np.cos(s*np.sqrt(ux**2 + uy**2)/(l*r)))/(ux**2 + uy**2)**2 - l*r*(1 - np.cos(s*np.sqrt(ux**2 + uy**2)/(l*r)))/(ux**2 + uy**2) - s*ux**2*np.sin(s*np.sqrt(ux**2 + uy**2)/(l*r))/(ux**2 + uy**2)**(3/2)], 
+        [-2*ux**2*uy*(np.cos(s*np.sqrt(ux**2 + uy**2)/(l*r)) - 1)/(ux**2 + uy**2)**2 + uy*(np.cos(s*np.sqrt(ux**2 + uy**2)/(l*r)) - 1)/(ux**2 + uy**2) - s*ux**2*uy*np.sin(s*np.sqrt(ux**2 + uy**2)/(l*r))/(l*r*(ux**2 + uy**2)**(3/2)), 
+        -2*ux**3*(1 - np.cos(s*np.sqrt(ux**2 + uy**2)/(l*r)))/(ux**2 + uy**2)**2 + 2*ux*(1 - np.cos(s*np.sqrt(ux**2 + uy**2)/(l*r)))/(ux**2 + uy**2) + s*ux**3*np.sin(s*np.sqrt(ux**2 + uy**2)/(l*r))/(l*r*(ux**2 + uy**2)**(3/2)) - s*ux*np.sin(s*np.sqrt(ux**2 + uy**2)/(l*r))/(l*r*np.sqrt(ux**2 + uy**2)), 
+        ux*uy*np.sin(s*np.sqrt(ux**2 + uy**2)/(l*r))/(ux**2 + uy**2)**(3/2) - s*ux*uy*np.cos(s*np.sqrt(ux**2 + uy**2)/(l*r))/(l*r*(ux**2 + uy**2)), 2*l*r*ux*uy*(1 - np.cos(s*np.sqrt(ux**2 + uy**2)/(l*r)))/(ux**2 + uy**2)**2 - s*ux*uy*np.sin(s*np.sqrt(ux**2 + uy**2)/(l*r))/(ux**2 + uy**2)**(3/2)], 
+        [-ux**2*np.sin(s*np.sqrt(ux**2 + uy**2)/(l*r))/(ux**2 + uy**2)**(3/2) + np.sin(s*np.sqrt(ux**2 + uy**2)/(l*r))/np.sqrt(ux**2 + uy**2) + s*ux**2*np.cos(s*np.sqrt(ux**2 + uy**2)/(l*r))/(l*r*(ux**2 + uy**2)), -ux*uy*np.sin(s*np.sqrt(ux**2 + uy**2)/(l*r))/(ux**2 + uy**2)**(3/2) + s*ux*uy*np.cos(s*np.sqrt(ux**2 + uy**2)/(l*r))/(l*r*(ux**2 + uy**2)), 
+        -s*ux*np.sin(s*np.sqrt(ux**2 + uy**2)/(l*r))/(l*r*np.sqrt(ux**2 + uy**2)), -l*r*ux*np.sin(s*np.sqrt(ux**2 + uy**2)/(l*r))/(ux**2 + uy**2)**(3/2) + s*ux*np.cos(s*np.sqrt(ux**2 + uy**2)/(l*r))/(ux**2 + uy**2)], 
         [0, 0, 0, 0]])
         
     return (dT_dux @ p_0_4d)[:3]

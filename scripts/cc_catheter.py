@@ -42,6 +42,8 @@ class CCCatheter:
         self.params = np.zeros((self.n_iter + 2, 5))
         self.p3d_poses = np.zeros((self.n_iter + 2, self.n_mid_points + 1, 3))
         self.p2d_poses = np.zeros((self.n_iter + 2, self.n_mid_points + 1, 2))
+        
+        self.noise_list = []
 
     def set_1dof_params(self, phi, u):
         """
@@ -72,6 +74,9 @@ class CCCatheter:
         self.mode = 2
         self.ux = ux
         self.uy = uy
+        
+        self.ux_theory = ux
+        self.uy_theory = uy
 
         self.params[0, 0] = self.ux
         self.params[0, 1] = self.uy
@@ -92,6 +97,9 @@ class CCCatheter:
         self.ux = ux
         self.uy = uy
         self.l = l
+        
+        self.ux_theory = ux
+        self.uy_theory = uy
 
         self.params[0, 0] = self.ux
         self.params[0, 1] = self.uy
@@ -221,7 +229,7 @@ class CCCatheter:
         else:
             return transforms.cc_transform_1dof(self.p_0, self.phi, self.u, self.l, self.r, s)
 
-    def transform_2dof(self, s=1, target=False):
+    def transform_2dof(self, s=1, target=False, theory=False):
         """
         2DoF constant curvature transform given the start point, the parameters, and the s value
 
@@ -244,9 +252,11 @@ class CCCatheter:
             return transforms.cc_transform_3dof(self.p_0, self.ux_target, self.uy_target, self.l, self.r, s)
 
         else:
+            if theory:
+                return transforms.cc_transform_3dof(self.p_0, self.ux_theory, self.uy_theory, self.l, self.r, s)
             return transforms.cc_transform_3dof(self.p_0, self.ux, self.uy, self.l, self.r, s)
 
-    def transform_3dof(self, s=1, target=False):
+    def transform_3dof(self, s=1, target=False, theory=False):
         """
         3DoF constant curvature transform given the start point, the parameters, and the s value
 
@@ -269,9 +279,27 @@ class CCCatheter:
             return transforms.cc_transform_3dof(self.p_0, self.ux_target, self.uy_target, self.l_target, self.r, s)
 
         else:
+            if theory:
+                return transforms.cc_transform_3dof(self.p_0, self.ux_theory, self.uy_theory, self.l, self.r, s)
             return transforms.cc_transform_3dof(self.p_0, self.ux, self.uy, self.l, self.r, s)
+        
+    def u_to_cc(self, theory=False):
+        cc_pt_list = []
+        for i, s in enumerate(self.s_list):
+                if self.mode == 1:
+                    p = self.transform_1dof(s)
+                elif self.mode == 2:
+                    p = self.transform_2dof(s, theory=theory)
+                elif self.mode == 3:
+                    p = self.transform_3dof(s, theory=theory)
+                else:
+                    print('[ERROR] [CCCatheter] Mode invalid')
+                    exit()
+                cc_pt_list.append(p)
+        return cc_pt_list
+        
 
-    def calculate_cc_points(self, current_iter=0, init=False, target=False):
+    def calculate_cc_points(self, current_iter=0, init=False, target=False, noise_percentage=0):
         """
         Calculate the list of points on the constant curvature curve given n_mid_points
             n_mid_points is the number of points between the two end points of the CC curve
@@ -281,15 +309,22 @@ class CCCatheter:
                 This is only used for parameter recording
             init (bool): whether this is the first iteration
                 This is only used for parameter recording
-            target (bool): whether to use target parameters for transform
+            target (bool): whether to calculate target constant curvature points
+            
+        Results:
+            self.cc_pt_list (list of (3,) np array, [c_mid, c_end]): 
+                list of 3D points on the constant curvature curve (ground truth of simulated catheter)
+            self.cc_pt_list_theory: theoretical, without consideration of noise (user-capable data)
+            self.target_cc_pt_list: target
         """
         if self.n_mid_points == 0:
             self.s_list = [1]
         else:
             self.s_list = np.linspace(0, 1, self.n_mid_points + 2)[1:]
 
+        # ------ Calculate the target constant curvature points ------
         if target:
-            self.target_cc_pt_list = []
+            self.target_cc_pt_list = [] # Everytime calculate_cc_points() is called, target_cc_pt_list is reset
 
             for i, s, in enumerate(self.s_list):
 
@@ -313,34 +348,63 @@ class CCCatheter:
                     print('    p = ', p)
 
         else:
+            # constant curvature points in theory (for initial guess in reconstruction)
+            self.cc_pt_list_theory = []
+            # constant curvature points in reality (simulation) ------   
             self.cc_pt_list = []
+            
+            # ------ Calculate the constant curvature points without noise ------
+            # cc_pt_list_no_noise = []
+            # for i, s in enumerate(self.s_list):
+            #     if self.mode == 1:
+            #         p = self.transform_1dof(s)
+            #     elif self.mode == 2:
+            #         p = self.transform_2dof(s)
+            #     elif self.mode == 3:
+            #         p = self.transform_3dof(s)
+            #     else:
+            #         print('[ERROR] [CCCatheter] Mode invalid')
+            #         exit()
+            #     cc_pt_list_no_noise.append(p)
+                   
+            self.cc_pt_list_theory = self.u_to_cc(theory=True)
+            
+            # ------ Calculate the constant curvature points with noise ------
+            # Add noise to the initial control parameters (ux, uy, l)
+            if init:
+                self.ux = random.gauss(self.ux, noise_percentage * self.ux)
+                self.uy = random.gauss(self.uy, noise_percentage * self.uy)
+                # self.l = random.gauss(self.l, noise_percentage * self.l)
+            
+                # cc_pt_list_noisy = []
 
-            for i, s in enumerate(self.s_list):
+                # for i, s in enumerate(self.s_list):
 
-                if self.mode == 1:
-                    p = self.transform_1dof(s)
-                elif self.mode == 2:
-                    p = self.transform_2dof(s)
-                elif self.mode == 3:
-                    p = self.transform_3dof(s)
-                else:
-                    print('[ERROR] [CCCatheter] Mode invalid')
-                    exit()
+                #     if self.mode == 1:
+                #         p = self.transform_1dof(s)
+                #     elif self.mode == 2:
+                #         p = self.transform_2dof(s)
+                #     elif self.mode == 3:
+                #         p = self.transform_3dof(s)
+                #     else:
+                #         print('[ERROR] [CCCatheter] Mode invalid')
+                #         exit()
 
-                self.cc_pt_list.append(p)
+                #     cc_pt_list_noisy.append(p)   
+            self.cc_pt_list = self.u_to_cc()
 
-                if self.verbose > 0:
-                    print('CC Point ' + str(i + 1) + ': ')
-                    print('    s = ', s)
-                    print('    p = ', p)
+            # if self.verbose > 0:
+            #     print('CC Point ' + str(i + 1) + ': ')
+            #     print('    s = ', s)
+            #     print('    p = ', p)
 
-                if current_iter < 0:
-                    continue
+            # if current_iter < 0:
+            #     continue
 
-                if init:
-                    self.p3d_poses[0, i, :] = p
-                else:
-                    self.p3d_poses[current_iter + 1, i, :] = p
+            # if init:
+            #     self.p3d_poses[0, i, :] = p
+            # else:
+            #     self.p3d_poses[current_iter + 1, i, :] = p
 
     def convert_bezier_to_cc(self, optimized_bezier_specs, current_iter=0):
         """
@@ -369,7 +433,7 @@ class CCCatheter:
         self.cc_pt_list[1] = p_end
 
         self.p3d_poses[current_iter + 1, 0, :] = p_mid
-        self.p3d_poses[current_iter + 1, 1, :] = p_end
+        self.p3d_poses[current_iter + 1, 1, :] = p_end   
 
     def convert_cc_points_to_2d(self, current_iter=0, init=False, target=False):
         """
@@ -380,7 +444,12 @@ class CCCatheter:
                 This is only used for parameter recording
             init (bool): whether this is the first iteration
                 This is only used for parameter recording
-            target (bool): whether to use target parameters for transform
+            target (bool): whether to calculate target constant curvature points in 2D
+            
+        Results:
+            in_view (bool): whether the target points are in view of the camera
+            self.cc_pt_list_2d
+            self.target_cc_pt_list_2d 
         """
         #if not self.loss_2d:
         #    print('[ERROR] [CCCatheter] Not initialized with 2D Loss')
@@ -446,8 +515,101 @@ class CCCatheter:
                     self.p2d_poses[current_iter + 1, i, :] = p_2d
 
         return in_view
+    
+    def convert_bezier_points_to_2d(self, current_iter=0, target=False, use_reconstruction=False):
+        """
+        Convert points on the constant curvature curve to 2D points on the image taken by camera given the camera info
 
-    def calculate_bezier_specs(self):
+        Args:
+            current_iter (int): current iteration in optimization.
+                This is only used for parameter recording
+            init (bool): whether this is the first iteration
+                This is only used for parameter recording
+            target (bool): whether to calculate target constant curvature points in 2D
+            
+        Results:
+            in_view (bool): whether the target points are in view of the camera
+            self.bezier_params_list_2d
+            self.target_cc_pt_list_2d 
+        """
+        in_view = True
+
+        # ------ Target Bezier points ------
+        if target:
+            if not self.target_bezier_params_list:
+                print(
+                    '[ERROR] [CCCatheter] self.target_bezier_params_list invalid. Run calculate_beziers_control_points(target=True) first'
+                )
+                exit()
+
+            self.target_bezier_params_list_2d = []
+
+            for i, p in enumerate(self.target_bezier_params_list):
+
+                p_2d = transforms.world_to_image_transform(p, self.camera_extrinsics, self.fx, self.fy, self.cx,
+                                                           self.cy)
+                p_2d[0] = round(self.size_x - p_2d[0])
+                p_2d[1] = round(p_2d[1])
+
+                if p_2d[0] >= self.size_x or p_2d[0] < 0 or p_2d[1] >= self.size_y or p_2d[1] < 0:
+                    print('[ERROR] [CCCatheter] Target falls outside of image. Target 2D position = ', p_2d)
+                    exit()
+
+                self.target_bezier_params_list_2d.append(p_2d)
+
+                self.p2d_poses[-1, i, :] = p_2d
+
+                if self.verbose > 1:
+                    print('2D Target Bezier Point ' + str(i + 1) + ': ')
+                    print('    p = ', p_2d)
+        # ------ Optimized Bezier points ------ 
+        elif use_reconstruction:
+            if not hasattr(self, 'bezier_params_optimized'):
+                print('[ERROR] [CCCatheter] self.bezier_params_optimized invalid. Run reconstruction process first')
+                exit()
+            
+            self.bezier_params_optimized_2d = []
+
+            for i, p in enumerate(self.bezier_params_optimized):
+                p_2d = transforms.world_to_image_transform(p, self.camera_extrinsics, self.fx, self.fy, self.cx,
+                                                            self.cy)
+                p_2d[0] = self.size_x - p_2d[0]
+
+                if p_2d[0] >= self.size_x or p_2d[0] < 0 or p_2d[1] >= self.size_y or p_2d[1] < 0:
+                    in_view = False
+
+                self.bezier_params_optimized_2d.append(p_2d)
+
+        # ------ Bezier points ------
+        else:
+            if self.bezier_params_list:
+                self.bezier_params_list_2d = []
+
+                for i, p in enumerate(self.bezier_params_list):
+                    p_2d = transforms.world_to_image_transform(p, self.camera_extrinsics, self.fx, self.fy, self.cx,
+                                                                self.cy)
+                    p_2d[0] = self.size_x - p_2d[0]
+
+                    if p_2d[0] >= self.size_x or p_2d[0] < 0 or p_2d[1] >= self.size_y or p_2d[1] < 0:
+                        in_view = False
+
+                    self.bezier_params_list_2d.append(p_2d)
+
+                    if self.verbose > 1:
+                        print('2D Bezier Point ' + str(i + 1) + ': ')
+                        print('    p = ', p_2d)
+
+                    if current_iter < 0:
+                        continue
+
+                    # if init:
+                    #     self.p2d_poses[0, i, :] = p_2d
+                    # else:
+                    #     self.p2d_poses[current_iter + 1, i, :] = p_2d
+
+        return in_view
+
+    def calculate_bezier_specs(self, init=False):
         """
         Calculate the Bezier specs for the current list of points on the constant curvature curve
 
@@ -458,14 +620,36 @@ class CCCatheter:
         Note:
             This only works for n_mid_points = 1
         """
-        if len(self.cc_pt_list) != 2:
-            print('[ERROR] Reconstruction is not compatible with more than 1 mid points')
-            exit()
+        # For the first iteration, use the theoretical bezier control points as initial guess
+        if init:
+            if len(self.cc_pt_list_theory) != 2:
+                print('[ERROR] Reconstruction is not compatible with more than 1 mid points')
+                exit()
+
+            bezier_specs = np.zeros((2, 3))
+
+            p_mid = self.cc_pt_list_theory[0]
+            p_end = self.cc_pt_list_theory[1]
+
+            c = (p_mid - (self.p_0 / 4) - (p_end / 4)) * 2
+
+            bezier_specs[0, :] = c 
+            bezier_specs[1, :] = p_end
+
+            return bezier_specs
+
+        # For the rest of the iterations, general case
+        # if len(self.cc_pt_list) != 2:
+        #     print('[ERROR] Reconstruction is not compatible with more than 1 mid points')
+        #     exit()
 
         bezier_specs = np.zeros((2, 3))
 
-        p_mid = self.cc_pt_list[0]
-        p_end = self.cc_pt_list[1]
+        # p_mid = self.cc_pt_list[0]
+        # p_end = self.cc_pt_list[1]
+        
+        p_mid = self.p_mid
+        p_end = self.p_end
 
         c = (p_mid - (self.p_0 / 4) - (p_end / 4)) * 2
 
@@ -473,6 +657,25 @@ class CCCatheter:
         bezier_specs[1, :] = p_end
 
         return bezier_specs
+    
+    def write_bezier_specs(self, bezier_specs, use_reconstruction=False):
+        """
+        Results:
+            self.bezier_params_optimized: result of reconstruction, user-capable bezier parameters.
+            self.bezier_params_list: ground truth.
+        """
+        
+        if use_reconstruction:
+            self.bezier_params_optimized = []
+            self.bezier_params_optimized.append(bezier_specs[0, :])
+            self.bezier_params_optimized.append(bezier_specs[1, :])
+        else:
+            if not self.bezier_params_list:
+                    print('[ERROR] [CCCatheter] self.bezier_params_list invalid. Run calculate_bezier_specs() first')
+                    exit()
+                    
+            self.bezier_params_list[0] = bezier_specs[0, :]
+            self.bezier_params_list[1] = bezier_specs[1, :]
 
     def write_target_specs(self, target_specs_path, show_mid_points=True):
         """
@@ -565,49 +768,246 @@ class CCCatheter:
         """
         return self.params
 
-    def calculate_p_diffs(self):
+    def calculate_p_diffs(self, bezier=False):
         """
         Calculate the difference between current positions and target positions
         """
-        if self.loss_2d:
-            if not (self.cc_pt_list_2d and self.target_cc_pt_list_2d):
-                print(
-                    '[ERROR] [CCCatheter] self.cc_pt_list_2d or self.target_cc_pt_list_2d invalid. Run calculate_cc_points() then convert_cc_points_to_2d() first'
-                )
-                exit()
+        # if use constant curvature points for feedback
+        if not bezier: 
+            if self.loss_2d:
+                if not (self.cc_pt_list_2d and self.target_cc_pt_list_2d):
+                    print(
+                        '[ERROR] [CCCatheter] self.cc_pt_list_2d or self.target_cc_pt_list_2d invalid. Run calculate_cc_points() then convert_cc_points_to_2d() first'
+                    )
+                    exit()
 
-            if self.tip_loss:
-                self.p_diffs = np.zeros((2, 1))
-                self.p_diffs[:, 0] = self.target_cc_pt_list_2d[-1] - self.cc_pt_list_2d[-1]
+                if self.tip_loss:
+                    self.p_diffs = np.zeros((2, 1))
+                    self.p_diffs[:, 0] = self.target_cc_pt_list_2d[-1] - self.cc_pt_list_2d[-1]
+
+                else:
+                    self.p_diffs = np.zeros((2 * len(self.cc_pt_list), 1))
+
+                    for i, (p, p_target) in enumerate(zip(self.cc_pt_list_2d, self.target_cc_pt_list_2d)):
+                        self.p_diffs[i * 2:(i + 1) * 2, 0] = (p_target - p)
 
             else:
-                self.p_diffs = np.zeros((2 * len(self.cc_pt_list), 1))
+                if not (self.cc_pt_list and self.target_cc_pt_list):
+                    print(
+                        '[ERROR] [CCCatheter] self.cc_pt_list or self.target_cc_pt_list invalid. Run calculate_cc_points() first'
+                    )
+                    exit()
 
-                for i, (p, p_target) in enumerate(zip(self.cc_pt_list_2d, self.target_cc_pt_list_2d)):
-                    self.p_diffs[i * 2:(i + 1) * 2, 0] = (p_target - p)
+                if self.tip_loss:
+                    self.p_diffs = np.zeros((3, 1))
+                    self.p_diffs[:, 0] = self.target_cc_pt_list[-1] - self.cc_pt_list[-1]
+
+                else:
+                    self.p_diffs = np.zeros((3 * len(self.cc_pt_list), 1))
+
+                    for i, (p, p_target) in enumerate(zip(self.cc_pt_list, self.target_cc_pt_list)):
+                        self.p_diffs[i * 3:(i + 1) * 3, 0] = (p_target - p)
+        
+        # if use bezier control points for feedback             
+        else: 
+            if self.loss_2d:
+                # if not hasattr(self, 'bezier_params_list_2d'):
+                #     print('[ERROR] [CCCatheter] 2D bezier parameters invalid.')
+                #     exit()
+                    
+                # if use reconstruction result as feedback
+                if hasattr(self, 'bezier_params_optimized_2d'):
+                    bezier_params_list_2d = self.bezier_params_optimized_2d
+                    print("Use reconstruction result as feedback")
+                # if use ground truth as feedback
+                else:
+                    bezier_params_list_2d = self.bezier_params_list_2d
+                    print("Use ground truth as feedback")
+                    
+                if self.tip_loss:
+                    self.p_diffs = np.zeros((2, 1))
+                    self.p_diffs[:, 0] = self.target_bezier_params_list_2d[-1] - bezier_params_list_2d[-1]
+                    print("Calculating 2D bezier tip loss")
+
+                else:
+                    self.p_diffs = np.zeros((2 * len(bezier_params_list_2d), 1))
+
+                    for i, (p, p_target) in enumerate(zip(bezier_params_list_2d, self.target_bezier_params_list_2d)):
+                        self.p_diffs[i * 2:(i + 1) * 2, 0] = (p_target - p)
+
+            # --- 3D loss ---
+            else:
+                # if not self.target_bezier_params_list or not self.bezier_params_optimized:
+                #     print(
+                #         '[ERROR] [CCCatheter] self.target_bezier_params_list invalid. Run calculate_beziers_control_points(target=True) first'
+                #     )
+                #     exit()
+                    
+                # if not self.bezier_params_list or not self.bezier_params_optimized:
+                #     print(
+                #         '[ERROR] [CCCatheter] bezier curve parameters unavailable. Run calculate_beziers_control_points() first'
+                #     )
+                #     exit()
+                
+                # if use reconstruction result as feedback
+                if hasattr(self, 'bezier_params_optimized'):
+                    bezier_params_list = self.bezier_params_optimized
+                    print("Use reconstruction result as feedback")
+                # if use ground truth as feedback
+                else:
+                    bezier_params_list = self.bezier_params_list
+                    print("Use ground truth as feedback")
+                
+                if self.tip_loss: # Bezier end control point error
+                    self.p_diffs = np.zeros((3, 1))
+                    self.p_diffs[:, 0] = self.target_bezier_params_list[-1] - bezier_params_list[-1]
+                    print("Calculating 3D bezier tip loss")
+
+                else: # Bezier end and middle control point error
+                    self.p_diffs = np.zeros((3 * len(bezier_params_list), 1))
+
+                    for i, (p, p_target) in enumerate(zip(bezier_params_list, self.target_bezier_params_list)):
+                        self.p_diffs[i * 3:(i + 1) * 3, 0] = (p_target - p)
+                    print("Calculating 3D bezier shape loss (using feedback from reconstruction)")
+                    
+    def calculate_loss(self):
+        if self.loss_2d:
+            if not self.target_cc_pt_list_2d:
+                print('[ERROR] [CCCatheter] target_cc_pt_list_2d.')
+                exit()
+            if not self.bezier_params_list_2d:
+                print('[ERROR] [CCCatheter] 2D bezier parameters invalid.')
+                exit()
+                
+            if self.tip_loss:
+                p_diffs = np.zeros((2, 1))
+                p_diffs[:, 0] = self.target_cc_pt_list_2d[-1] - self.bezier_params_list_2d[-1]
+                loss = np.linalg.norm(p_diffs)
+                return loss
+
+            else:
+                p_diffs = np.zeros((2 * len(self.bezier_params_list_2d), 1))
+
+                for i, (p, p_target) in enumerate(zip(self.bezier_params_list_2d, self.target_cc_pt_list_2d)):
+                    p_diffs[i * 2:(i + 1) * 2, 0] = (p_target - p)
+                loss = (np.linalg.norm(p_diffs[:2]) + np.linalg.norm(p_diffs[2:])) / 2
+                return loss
 
         else:
-            if not (self.cc_pt_list and self.target_cc_pt_list):
+            if not self.target_bezier_params_list or not self.bezier_params_list:
                 print(
-                    '[ERROR] [CCCatheter] self.cc_pt_list or self.target_cc_pt_list invalid. Run calculate_cc_points() first'
+                    '[ERROR] [CCCatheter] self.target_bezier_params_list invalid. Run calculate_beziers_control_points(target=True) first'
                 )
                 exit()
+            
+            if self.tip_loss: # Bezier end control point error
+                p_diffs = np.zeros((3, 1))
+                p_diffs[:, 0] = self.target_bezier_params_list[-1] - self.bezier_params_list[-1]
+                loss = np.linalg.norm(p_diffs)
+                return loss
 
-            if self.tip_loss:
-                self.p_diffs = np.zeros((3, 1))
-                self.p_diffs[:, 0] = self.target_cc_pt_list[-1] - self.cc_pt_list[-1]
+            else: # Bezier end and middle control point error
+                p_diffs = np.zeros((3 * len(self.bezier_params_list), 1))
 
-            else:
-                self.p_diffs = np.zeros((3 * len(self.cc_pt_list), 1))
-
-                for i, (p, p_target) in enumerate(zip(self.cc_pt_list, self.target_cc_pt_list)):
-                    self.p_diffs[i * 3:(i + 1) * 3, 0] = (p_target - p)
-
-    def calculate_beziers_control_points(self):
+                for i, (p, p_target) in enumerate(zip(self.bezier_params_list, self.target_bezier_params_list)):
+                    p_diffs[i * 3:(i + 1) * 3, 0] = (p_target - p)
+                loss = (np.linalg.norm(p_diffs[:3]) + np.linalg.norm(p_diffs[3:])) / 2
+                return loss
+                    
+    # def generate_noise(self, point, noise_level):
+    #     """
+    #     Generate noise based on the input point and a seed value.
+    #     This ensures that similar points will generate similar noise.
+    #     """
+    #     seed = hash(tuple(point)) % 2**32
+    #     np.random.seed(seed)
+    #     noise = noise_level * np.random.randn(*point.shape)
+    #     print("Noise generated: ", noise)
+    #     return noise
+    
+    # # 生成用于平移的向量，确保相近的参考点产生相似的偏移向量
+    # def generate_noise(self, reference_point, translation_magnitude=0.002, noise_scale=2.0):
+    #     # 将参考点乘以一个缩放因子，确保平滑性
+    #     scaled_point = reference_point / noise_scale
+        
+    #     # print(type(scaled_point), scaled_point)
+    #     scaled_point = np.array(scaled_point, dtype=np.float64)
+        
+    #     # 使用参考点的坐标生成噪声方向向量，使用 sin 生成平滑随机值
+    #     noise = np.sin(scaled_point * np.pi * 2)
+        
+    #     # 随机生成的方向不是单位向量，先归一化成单位向量
+    #     random_direction = noise / np.linalg.norm(noise)
+        
+    #     # 将单位向量乘以 translation_magnitude，保证平移向量的模长为指定值
+    #     translation_vector = random_direction * translation_magnitude
+    #     print("Noise generated: ", translation_vector, "magnitude: ", np.linalg.norm(translation_vector))
+    #     return translation_vector
+    
+    def generate_noise(self, reference_point, min_translation_magnitude=0.001, max_translation_magnitude=0.002, noise_scale=1.0, magnitude_variation_factor=20.0):
         """
-        Given the list of points on the constant curvature curve, calculate the control points for a
-            number of Bezier curves. The number of Bezier curves is determined by number of cc points // 2 
+        Generate a translation vector to account for noise
+        Ensure that nearby reference points produce similar translation vectors
         """
+        # Scale the reference point to ensure smooth noise generation
+        scaled_point = reference_point / noise_scale
+        
+        # Ensure that scaled_point is of type float64 for consistency
+        scaled_point = np.array(scaled_point, dtype=np.float64)
+        
+        # Generate noise based on the coordinates of the scaled point, using sin to generate smooth random values
+        noise = np.sin(scaled_point * np.pi * 2)
+        
+        # Normalize the generated noise to create a unit direction vector
+        random_direction = noise / np.linalg.norm(noise)
+        
+        # Generate a value between 0 and 1 based on smooth noise function
+        scaled_magnitude = (np.sin(np.sum(scaled_point * magnitude_variation_factor)) + 1) / 2
+        
+        # Map the value from [0, 1] to [min_translation_magnitude, max_translation_magnitude]
+        translation_magnitude = min_translation_magnitude + (max_translation_magnitude - min_translation_magnitude) * scaled_magnitude
+        
+        # Multiply the unit direction vector by the random translation magnitude to get the final translation vector
+        translation_vector = random_direction * translation_magnitude
+        
+        print("Noise generated: ", translation_vector, "magnitude: ", np.linalg.norm(translation_vector))
+        return translation_vector
+
+
+    def calculate_beziers_control_points(self, noise_level=0, target=False):
+        """
+        Given the list of points on the constant curvature curve, calculate the control points for Bezier curves.
+        Results: 
+            4 Bezier control points (number of cc points // 2), for rendering with Blender.
+            self.bezier_params_list: 3 Bezier control points, for reconstruction and control loop (ground truth).
+            self.target_bezier_params_list: target
+            self.bezier_params_list_theory: theoretical, without consideration of noise (user-capable data)
+        Format: [b_mid, b_end], b_mid length = 3, b_end length = 3
+        """
+        
+        # ------ Calculate the target Bezier control points ------
+        if target:
+            if not self.target_cc_pt_list:
+                print('[ERROR] [CCCatheter] self.target_cc_pt_list invalid. Run calculate_cc_points(target=True) first')
+                exit()
+                
+            cc_pt_list_with_p_0 = [self.p_0] + self.target_cc_pt_list
+
+            n_beziers = int(len(self.cc_pt_list) / 2)
+            for i in range(n_beziers):
+                p_start = cc_pt_list_with_p_0[2 * i]
+                p_mid = cc_pt_list_with_p_0[2 * i + 1]
+                p_end = cc_pt_list_with_p_0[2 * (i + 1)]
+                
+                b1 = (p_mid - (self.p_0 / 4) - (p_end / 4)) * 2
+                
+                self.target_bezier_params_list = []
+                self.target_bezier_params_list.append(b1)
+                self.target_bezier_params_list.append(p_end)
+                
+            return
+        
+        # ------ Calculate the Bezier control points (real) ------
         if not self.cc_pt_list:
             print('[ERROR] [CCCatheter] self.cc_pt_list invalid. Run calculate_cc_points() first')
             exit()
@@ -615,24 +1015,61 @@ class CCCatheter:
         n_beziers = int(len(self.cc_pt_list) / 2)
         self.bezier_set = BezierSet(n_beziers)
 
+        # Get the start, middle and end points of the constant curvature curve
         cc_pt_list_with_p_0 = [self.p_0] + self.cc_pt_list
 
-        for i in range(n_beziers):
-            p_start = cc_pt_list_with_p_0[2 * i]
-            p_mid = cc_pt_list_with_p_0[2 * i + 1]
-            p_end = cc_pt_list_with_p_0[2 * (i + 1)]
+        p_start = cc_pt_list_with_p_0[0]
+        p_mid = cc_pt_list_with_p_0[1]
+        p_end = cc_pt_list_with_p_0[2]
+        
+        self.bezier_params_list = []
+        
+        # Add noise to the conversion between constant curvature and Bezier control points
+        # (Add noise to the middle and end points of the constant curvature curve)
+        if noise_level > 0:
+            # Generate deterministic noise based on the point coordinates
+            noise_vector_mid = self.generate_noise(p_mid, max_translation_magnitude=noise_level)
+            p_mid = p_mid + noise_vector_mid
+            noise_vector_end = self.generate_noise(p_end, max_translation_magnitude=noise_level)
+            p_end = p_end + noise_vector_end
+            
+            self.noise_list.append([np.linalg.norm(noise_vector_mid), np.linalg.norm(noise_vector_end)])
+                    
+        c = (p_mid - (self.p_0 / 4) - (p_end / 4)) * 2
+        c1 = 4 / 3 * p_mid - 1 / 3 * p_end
+        c2 = 4 / 3 * p_mid - 1 / 3 * p_start
+        
+        # 4 bezier control points, for rendering catheter with Blender
+        self.bezier_set.enter_spec(p_start, p_end, c1, c2)
+        
+        # 3 bezier control points, for control loop
+        self.bezier_params_list.append(c)
+        self.bezier_params_list.append(p_end)
 
-            c = (p_mid - (p_start / 4) - (p_end / 4)) * 2
-            c1 = 4 / 3 * p_mid - 1 / 3 * p_end
-            c2 = 4 / 3 * p_mid - 1 / 3 * p_start
+        if self.verbose > 1:
+            print('Bezier ' + str(i) + ': ')
+            print('    p_start = ', p_start)
+            print('    p_mid   = ', p_mid)
+            print('    p_end   = ', p_end)
+        
+        
+        # ------ Calculate the Bezier control points (theoretical) ------
+        if not self.cc_pt_list_theory:
+            print('[ERROR] [CCCatheter] self.cc_pt_list_theory invalid. Run calculate_cc_points() first')
+            exit()
 
-            self.bezier_set.enter_spec(p_start, p_end, c1, c2)
+        # Get the start, middle and end points of the constant curvature curve
+        cc_pt_list_with_p_0 = [self.p_0] + self.cc_pt_list_theory
 
-            if self.verbose > 1:
-                print('Bezier ' + str(i) + ': ')
-                print('    p_start = ', p_start)
-                print('    p_mid   = ', p_mid)
-                print('    p_end   = ', p_end)
+        p_start = cc_pt_list_with_p_0[0]
+        p_mid = cc_pt_list_with_p_0[1]
+        p_end = cc_pt_list_with_p_0[2]
+                
+        self.bezier_params_list_theory = []
+         
+        c = (p_mid - (self.p_0 / 4) - (p_end / 4)) * 2
+        self.bezier_params_list_theory.append(c)
+        self.bezier_params_list_theory.append(p_end)
 
     def render_beziers(self,
                        curve_specs_path,
@@ -658,9 +1095,10 @@ class CCCatheter:
             print('[ERROR] [CCCatheter] self.bezier_set invalid. Run calculate_beziers_control_points() first')
             exit()
 
-        self.bezier_set.print_specs()
+        # self.bezier_set.print_specs()
         self.bezier_set.write_specs(curve_specs_path)
         self.bezier_set.render(img_save_path, target_specs_path, viewpoint_mode, transparent_mode)
+        print(f"Image rendered. Image saved to {img_save_path}")
 
     def visualize_targets(self, img_save_path):
         """
@@ -1034,9 +1472,9 @@ class CCCatheter:
             noise_percentage: gaussian noise will be applied to the feedback. 
                 The variance of that noise would be noise_percentage * feedback
         """
-        print('Running 2-DOF Interspace (ux, uy) Parameterization')
+        print('Running control of 2-DOF Interspace (ux, uy) Parameterization')
 
-        self.calculate_p_diffs()
+        self.calculate_p_diffs(bezier=True)
         print('|p_diffs| = ', np.linalg.norm(self.p_diffs))
 
         J = bezier_interspace_transforms.calculate_jacobian_2dof_ux_uy(self.p_0, self.ux, self.uy, self.l, self.r)
@@ -1047,7 +1485,17 @@ class CCCatheter:
         if self.loss_2d:
 
             if self.tip_loss:
-                L_diag = transforms.world_to_image_interaction_matrix(self.cc_pt_list[-1], self.camera_extrinsics,
+                # L_diag = transforms.world_to_image_interaction_matrix(self.cc_pt_list[-1], self.camera_extrinsics,
+                #                                                       self.fx, self.fy)
+                
+                # if use reconstruction result as feedback
+                if hasattr(self, 'bezier_params_optimized'):
+                    bezier_params_list = self.bezier_params_optimized   
+                # if use ground truth as feedback
+                else:
+                    bezier_params_list = self.bezier_params_list
+                    
+                L_diag = transforms.world_to_image_interaction_matrix(bezier_params_list[-1], self.camera_extrinsics,
                                                                       self.fx, self.fy)
 
             else:
@@ -1062,12 +1510,16 @@ class CCCatheter:
         J_T = np.transpose(J)
 
         weight_matrix = self.weight_matrix[:2, :2]
-        print('weight_matrix = ', weight_matrix)
+        # print('weight_matrix = ', weight_matrix)
 
         d = np.linalg.pinv(J_T @ J + weight_matrix) @ J_T @ self.p_diffs
         d_ux = d[0, 0]
         d_uy = d[1, 0]
 
+        self.du = [d_ux, d_uy]
+        self.ux_theory += d_ux
+        self.uy_theory += d_uy
+        
         ## Add noise to parameter updates
         if noise_percentage > 0:
             d_ux = random.gauss(d_ux, noise_percentage * d_ux)
@@ -1079,7 +1531,7 @@ class CCCatheter:
         self.ux += d_ux
         self.uy += d_uy
 
-        ## View breach prevention
+        # Check if the catheter tip is out of image view
         self.calculate_cc_points(-1)
         while not self.convert_cc_points_to_2d(-1):
             print('[WARNING] View breach caught')
@@ -1110,9 +1562,9 @@ class CCCatheter:
             noise_percentage: gaussian noise will be applied to the feedback. 
                 The variance of that noise would be noise_percentage * feedback
         """
-        print('Running 3-DOF Interspace (ux, uy) Parameterization')
+        print('Running control of 3-DOF Interspace (ux, uy) Parameterization')
 
-        self.calculate_p_diffs()
+        self.calculate_p_diffs(bezier=True)
         print('|p_diffs| = ', np.linalg.norm(self.p_diffs))
 
         J = bezier_interspace_transforms.calculate_jacobian_3dof_ux_uy(self.p_0, self.ux, self.uy, self.l, self.r)
@@ -1123,7 +1575,14 @@ class CCCatheter:
         if self.loss_2d:
 
             if self.tip_loss:
-                L_diag = transforms.world_to_image_interaction_matrix(self.cc_pt_list[-1], self.camera_extrinsics,
+                # if use reconstruction result as feedback
+                if hasattr(self, 'bezier_params_optimized'):
+                    bezier_params_list = self.bezier_params_optimized   
+                # if use ground truth as feedback
+                else:
+                    bezier_params_list = self.bezier_params_list
+                    
+                L_diag = transforms.world_to_image_interaction_matrix(bezier_params_list[-1], self.camera_extrinsics,
                                                                       self.fx, self.fy)
 
             else:
@@ -1138,19 +1597,22 @@ class CCCatheter:
         J_T = np.transpose(J)
 
         weight_matrix = self.weight_matrix
-        print('weight_matrix = ', weight_matrix)
+        # print('weight_matrix = ', weight_matrix)
 
         d = np.linalg.pinv(J_T @ J + weight_matrix) @ J_T @ self.p_diffs
         d_ux = d[0, 0]
         d_uy = d[1, 0]
         d_l = d[2, 0]
-
+        
+        self.du = [d_ux, d_uy]
+        self.ux_theory += d_ux
+        self.uy_theory += d_uy
+        
         ## Add noise to parameter updates
         if noise_percentage > 0:
             d_ux = random.gauss(d_ux, noise_percentage * d_ux)
             d_uy = random.gauss(d_uy, noise_percentage * d_uy)
-            d_l = random.gauss(d_l, noise_percentage * d_l)
-
+        
         ux_old = self.ux
         uy_old = self.uy
         l_old = self.l
@@ -1159,7 +1621,7 @@ class CCCatheter:
         self.uy += d_uy
         self.l += d_l
 
-        ## View breach prevention
+        # Check if the catheter tip is out of image view
         self.calculate_cc_points(-1)
         while not self.convert_cc_points_to_2d(-1):
             print('[WARNING] View breach caught')
@@ -1176,6 +1638,8 @@ class CCCatheter:
         self.params[current_iter + 1, 0] = self.ux
         self.params[current_iter + 1, 1] = self.uy
         self.params[current_iter + 1, 2] = self.l
+        
+        print("l = ", self.l)
 
         if self.verbose > 0:
             print('d_ux = ', d_ux)

@@ -2701,9 +2701,12 @@ class reconstructCurve():
 
         # self.plotProjCenterline()
 
-        print("Final --->", self.para)
-        print("GT    --->", self.para_gt)
-        print("Error --->", torch.abs(self.para - self.para_gt))
+        # print("Final --->", self.para)
+        # print("GT    --->", self.para_gt)
+        # print("Error --->", torch.abs(self.para - self.para_gt))
+        
+        print("Optimization completed.")
+        
         # np.savetxt(self.save_dir + '/final_optimized_para.csv', self.saved_opt_history, delimiter=",")
 
         # # plt.plot(loss_history)
